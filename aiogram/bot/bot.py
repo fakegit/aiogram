@@ -274,14 +274,15 @@ class Bot(BaseBot, DataMixin, ContextInstanceMixin):
                            parse_mode: typing.Optional[base.String] = None,
                            entities: typing.Optional[typing.List[types.MessageEntity]] = None,
                            disable_web_page_preview: typing.Optional[base.Boolean] = None,
+                           message_thread_id: typing.Optional[base.Integer] = None,
                            disable_notification: typing.Optional[base.Boolean] = None,
                            protect_content: typing.Optional[base.Boolean] = None,
                            reply_to_message_id: typing.Optional[base.Integer] = None,
                            allow_sending_without_reply: typing.Optional[base.Boolean] = None,
                            reply_markup: typing.Union[types.InlineKeyboardMarkup,
-                                                      types.ReplyKeyboardMarkup,
-                                                      types.ReplyKeyboardRemove,
-                                                      types.ForceReply, None] = None,
+                           types.ReplyKeyboardMarkup,
+                           types.ReplyKeyboardRemove,
+                           types.ForceReply, None] = None,
                            ) -> types.Message:
         """
         Use this method to send text messages.
@@ -290,6 +291,10 @@ class Bot(BaseBot, DataMixin, ContextInstanceMixin):
 
         :param chat_id: Unique identifier for the target chat or username of the target channel
         :type chat_id: :obj:`typing.Union[base.Integer, base.String]`
+
+        :param message_thread_id: Unique identifier for the target message thread (topic) of the forum; for forum
+            supergroups only
+        :type message_thread_id: :obj:`typing.Optional[base.Integer]`
 
         :param text: Text of the message to be sent
         :type text: :obj:`base.String`
@@ -335,6 +340,8 @@ class Bot(BaseBot, DataMixin, ContextInstanceMixin):
             payload.setdefault('parse_mode', self.parse_mode)
         if self.disable_web_page_preview:
             payload.setdefault('disable_web_page_preview', self.disable_web_page_preview)
+        if self.protect_content is not None:
+            payload.setdefault('protect_content', self.protect_content)
 
         result = await self.request(api.Methods.SEND_MESSAGE, payload)
         return types.Message(**result)
@@ -343,6 +350,7 @@ class Bot(BaseBot, DataMixin, ContextInstanceMixin):
                               chat_id: typing.Union[base.Integer, base.String],
                               from_chat_id: typing.Union[base.Integer, base.String],
                               message_id: base.Integer,
+                              message_thread_id: typing.Optional[base.Integer] = None,
                               disable_notification: typing.Optional[base.Boolean] = None,
                               protect_content: typing.Optional[base.Boolean] = None,
                               ) -> types.Message:
@@ -354,6 +362,11 @@ class Bot(BaseBot, DataMixin, ContextInstanceMixin):
         :param chat_id: Unique identifier for the target chat or
             username of the target channel
         :type chat_id: :obj:`typing.Union[base.Integer, base.String]`
+
+        :param message_thread_id: Unique identifier for the target message thread (topic) of the forum; for forum
+            supergroups only
+        :type message_thread_id: :obj:`typing.Optional[base.Integer]`
+
 
         :param from_chat_id: Unique identifier for the chat where the
             original message was sent
@@ -375,6 +388,8 @@ class Bot(BaseBot, DataMixin, ContextInstanceMixin):
         :rtype: :obj:`types.Message`
         """
         payload = generate_payload(**locals())
+        if self.protect_content is not None:
+            payload.setdefault('protect_content', self.protect_content)
 
         result = await self.request(api.Methods.FORWARD_MESSAGE, payload)
         return types.Message(**result)
@@ -386,14 +401,15 @@ class Bot(BaseBot, DataMixin, ContextInstanceMixin):
                            caption: typing.Optional[base.String] = None,
                            parse_mode: typing.Optional[base.String] = None,
                            caption_entities: typing.Optional[typing.List[types.MessageEntity]] = None,
+                           message_thread_id: typing.Optional[base.Integer] = None,
                            disable_notification: typing.Optional[base.Boolean] = None,
                            protect_content: typing.Optional[base.Boolean] = None,
                            reply_to_message_id: typing.Optional[base.Integer] = None,
                            allow_sending_without_reply: typing.Optional[base.Boolean] = None,
                            reply_markup: typing.Union[types.InlineKeyboardMarkup,
-                                                      types.ReplyKeyboardMarkup,
-                                                      types.ReplyKeyboardRemove,
-                                                      types.ForceReply, None] = None,
+                           types.ReplyKeyboardMarkup,
+                           types.ReplyKeyboardRemove,
+                           types.ForceReply, None] = None,
                            ) -> types.MessageId:
         """
         Use this method to copy messages of any kind. The method is analogous to the
@@ -405,6 +421,10 @@ class Bot(BaseBot, DataMixin, ContextInstanceMixin):
         :param chat_id: Unique identifier for the target chat or username of the
             target channel (in the format @channelusername)
         :type chat_id: :obj:`typing.Union[base.Integer, base.String]`
+
+        :param message_thread_id: Unique identifier for the target message thread (topic) of the forum; for forum
+            supergroups only
+        :type message_thread_id: :obj:`typing.Optional[base.Integer]`
 
         :param from_chat_id: Unique identifier for the chat where the original
             message was sent (or channel username in the format @channelusername)
@@ -457,6 +477,8 @@ class Bot(BaseBot, DataMixin, ContextInstanceMixin):
         payload = generate_payload(**locals())
         if self.parse_mode and caption_entities is None:
             payload.setdefault('parse_mode', self.parse_mode)
+        if self.protect_content is not None:
+            payload.setdefault('protect_content', self.protect_content)
 
         result = await self.request(api.Methods.COPY_MESSAGE, payload)
         return types.MessageId(**result)
@@ -467,14 +489,16 @@ class Bot(BaseBot, DataMixin, ContextInstanceMixin):
                          caption: typing.Optional[base.String] = None,
                          parse_mode: typing.Optional[base.String] = None,
                          caption_entities: typing.Optional[typing.List[types.MessageEntity]] = None,
+                         message_thread_id: typing.Optional[base.Integer] = None,
                          disable_notification: typing.Optional[base.Boolean] = None,
                          protect_content: typing.Optional[base.Boolean] = None,
                          reply_to_message_id: typing.Optional[base.Integer] = None,
                          allow_sending_without_reply: typing.Optional[base.Boolean] = None,
                          reply_markup: typing.Union[types.InlineKeyboardMarkup,
-                                                    types.ReplyKeyboardMarkup,
-                                                    types.ReplyKeyboardRemove,
-                                                    types.ForceReply, None] = None,
+                         types.ReplyKeyboardMarkup,
+                         types.ReplyKeyboardRemove,
+                         types.ForceReply, None] = None,
+                         has_spoiler: typing.Optional[base.Boolean] = None,
                          ) -> types.Message:
         """
         Use this method to send photos.
@@ -483,6 +507,10 @@ class Bot(BaseBot, DataMixin, ContextInstanceMixin):
 
         :param chat_id: Unique identifier for the target chat or username of the target channel
         :type chat_id: :obj:`typing.Union[base.Integer, base.String]`
+
+        :param message_thread_id: Unique identifier for the target message thread (topic) of the forum; for forum
+            supergroups only
+        :type message_thread_id: :obj:`typing.Optional[base.Integer]`
 
         :param photo: Photo to send
         :type photo: :obj:`typing.Union[base.InputFile, base.String]`
@@ -517,6 +545,9 @@ class Bot(BaseBot, DataMixin, ContextInstanceMixin):
         :type reply_markup: :obj:`typing.Union[types.InlineKeyboardMarkup,
             types.ReplyKeyboardMarkup, types.ReplyKeyboardRemove, types.ForceReply, None]`
 
+        :param has_spoiler: Pass True if the photo needs to be covered with a spoiler animation
+        :type has_spoiler: :obj:`typing.Optional[base.Boolean]`
+
         :return: On success, the sent Message is returned
         :rtype: :obj:`types.Message`
         """
@@ -525,6 +556,8 @@ class Bot(BaseBot, DataMixin, ContextInstanceMixin):
         payload = generate_payload(**locals(), exclude=['photo'])
         if self.parse_mode and caption_entities is None:
             payload.setdefault('parse_mode', self.parse_mode)
+        if self.protect_content is not None:
+            payload.setdefault('protect_content', self.protect_content)
 
         files = {}
         prepare_file(payload, files, 'photo', photo)
@@ -542,14 +575,15 @@ class Bot(BaseBot, DataMixin, ContextInstanceMixin):
                          performer: typing.Optional[base.String] = None,
                          title: typing.Optional[base.String] = None,
                          thumb: typing.Union[base.InputFile, base.String, None] = None,
+                         message_thread_id: typing.Optional[base.Integer] = None,
                          disable_notification: typing.Optional[base.Boolean] = None,
                          protect_content: typing.Optional[base.Boolean] = None,
                          reply_to_message_id: typing.Optional[base.Integer] = None,
                          allow_sending_without_reply: typing.Optional[base.Boolean] = None,
                          reply_markup: typing.Union[types.InlineKeyboardMarkup,
-                                                    types.ReplyKeyboardMarkup,
-                                                    types.ReplyKeyboardRemove,
-                                                    types.ForceReply, None] = None,
+                         types.ReplyKeyboardMarkup,
+                         types.ReplyKeyboardRemove,
+                         types.ForceReply, None] = None,
                          ) -> types.Message:
         """
         Use this method to send audio files, if you want Telegram clients to display them in the music player.
@@ -561,6 +595,10 @@ class Bot(BaseBot, DataMixin, ContextInstanceMixin):
 
         :param chat_id: Unique identifier for the target chat or username of the target channel
         :type chat_id: :obj:`typing.Union[base.Integer, base.String]`
+
+        :param message_thread_id: Unique identifier for the target message thread (topic) of the forum; for forum
+            supergroups only
+        :type message_thread_id: :obj:`typing.Optional[base.Integer]`
 
         :param audio: Audio file to send
         :type audio: :obj:`typing.Union[base.InputFile, base.String]`
@@ -615,6 +653,8 @@ class Bot(BaseBot, DataMixin, ContextInstanceMixin):
         payload = generate_payload(**locals(), exclude=['audio', 'thumb'])
         if self.parse_mode and caption_entities is None:
             payload.setdefault('parse_mode', self.parse_mode)
+        if self.protect_content is not None:
+            payload.setdefault('protect_content', self.protect_content)
 
         files = {}
         prepare_file(payload, files, 'audio', audio)
@@ -631,15 +671,16 @@ class Bot(BaseBot, DataMixin, ContextInstanceMixin):
                             parse_mode: typing.Optional[base.String] = None,
                             caption_entities: typing.Optional[typing.List[types.MessageEntity]] = None,
                             disable_content_type_detection: typing.Optional[base.Boolean] = None,
+                            message_thread_id: typing.Optional[base.Integer] = None,
                             disable_notification: typing.Optional[base.Boolean] = None,
                             protect_content: typing.Optional[base.Boolean] = None,
                             reply_to_message_id: typing.Optional[base.Integer] = None,
                             allow_sending_without_reply: typing.Optional[base.Boolean] = None,
                             reply_markup: typing.Union[types.InlineKeyboardMarkup,
-                                                       types.ReplyKeyboardMarkup,
-                                                       types.ReplyKeyboardRemove,
-                                                       types.ForceReply,
-                                                       None] = None,
+                            types.ReplyKeyboardMarkup,
+                            types.ReplyKeyboardRemove,
+                            types.ForceReply,
+                            None] = None,
                             ) -> types.Message:
         """
         Use this method to send general files. On success, the sent Message is
@@ -651,6 +692,11 @@ class Bot(BaseBot, DataMixin, ContextInstanceMixin):
         :param chat_id: Unique identifier for the target chat or username of the
             target channel
         :type chat_id: :obj:`typing.Union[base.Integer, base.String]`
+
+        :param message_thread_id: Unique identifier for the target message thread (topic) of the forum; for forum
+            supergroups only
+        :type message_thread_id: :obj:`typing.Optional[base.Integer]`
+
 
         :param document: File to send
         :type document: :obj:`typing.Union[base.InputFile, base.String]`
@@ -705,6 +751,8 @@ class Bot(BaseBot, DataMixin, ContextInstanceMixin):
         payload = generate_payload(**locals(), exclude=['document'])
         if self.parse_mode and caption_entities is None:
             payload.setdefault('parse_mode', self.parse_mode)
+        if self.protect_content is not None:
+            payload.setdefault('protect_content', self.protect_content)
 
         files = {}
         prepare_file(payload, files, 'document', document)
@@ -723,14 +771,16 @@ class Bot(BaseBot, DataMixin, ContextInstanceMixin):
                          parse_mode: typing.Optional[base.String] = None,
                          caption_entities: typing.Optional[typing.List[types.MessageEntity]] = None,
                          supports_streaming: typing.Optional[base.Boolean] = None,
+                         message_thread_id: typing.Optional[base.Integer] = None,
                          disable_notification: typing.Optional[base.Boolean] = None,
                          protect_content: typing.Optional[base.Boolean] = None,
                          reply_to_message_id: typing.Optional[base.Integer] = None,
                          allow_sending_without_reply: typing.Optional[base.Boolean] = None,
                          reply_markup: typing.Union[types.InlineKeyboardMarkup,
-                                                    types.ReplyKeyboardMarkup,
-                                                    types.ReplyKeyboardRemove,
-                                                    types.ForceReply, None] = None,
+                         types.ReplyKeyboardMarkup,
+                         types.ReplyKeyboardRemove,
+                         types.ForceReply, None] = None,
+                         has_spoiler: typing.Optional[base.Boolean] = None,
                          ) -> types.Message:
         """
         Use this method to send video files, Telegram clients support mp4 videos
@@ -740,6 +790,10 @@ class Bot(BaseBot, DataMixin, ContextInstanceMixin):
 
         :param chat_id: Unique identifier for the target chat or username of the target channel
         :type chat_id: :obj:`typing.Union[base.Integer, base.String]`
+
+        :param message_thread_id: Unique identifier for the target message thread (topic) of the forum; for forum
+            supergroups only
+        :type message_thread_id: :obj:`typing.Optional[base.Integer]`
 
         :param video: Video to send
         :type video: :obj:`typing.Union[base.InputFile, base.String]`
@@ -789,6 +843,9 @@ class Bot(BaseBot, DataMixin, ContextInstanceMixin):
         :type reply_markup: :obj:`typing.Union[types.InlineKeyboardMarkup,
             types.ReplyKeyboardMarkup, types.ReplyKeyboardRemove, types.ForceReply, None]`
 
+        :param has_spoiler: Pass True if the video needs to be covered with a spoiler animation
+        :type has_spoiler: :obj:`typing.Optional[base.Boolean]`
+
         :return: On success, the sent Message is returned
         :rtype: :obj:`types.Message`
         """
@@ -797,6 +854,8 @@ class Bot(BaseBot, DataMixin, ContextInstanceMixin):
         payload = generate_payload(**locals(), exclude=['video', 'thumb'])
         if self.parse_mode and caption_entities is None:
             payload.setdefault('parse_mode', self.parse_mode)
+        if self.protect_content is not None:
+            payload.setdefault('protect_content', self.protect_content)
 
         files = {}
         prepare_file(payload, files, 'video', video)
@@ -815,14 +874,16 @@ class Bot(BaseBot, DataMixin, ContextInstanceMixin):
                              caption: typing.Optional[base.String] = None,
                              parse_mode: typing.Optional[base.String] = None,
                              caption_entities: typing.Optional[typing.List[types.MessageEntity]] = None,
+                             message_thread_id: typing.Optional[base.Integer] = None,
                              disable_notification: typing.Optional[base.Boolean] = None,
                              protect_content: typing.Optional[base.Boolean] = None,
                              reply_to_message_id: typing.Optional[base.Integer] = None,
                              allow_sending_without_reply: typing.Optional[base.Boolean] = None,
                              reply_markup: typing.Union[typing.Union[types.InlineKeyboardMarkup,
-                                                                     types.ReplyKeyboardMarkup,
-                                                                     types.ReplyKeyboardRemove,
-                                                                     types.ForceReply], None] = None,
+                             types.ReplyKeyboardMarkup,
+                             types.ReplyKeyboardRemove,
+                             types.ForceReply], None] = None,
+                             has_spoiler: typing.Optional[base.Boolean] = None,
                              ) -> types.Message:
         """
         Use this method to send animation files (GIF or H.264/MPEG-4 AVC video without sound).
@@ -835,6 +896,10 @@ class Bot(BaseBot, DataMixin, ContextInstanceMixin):
         :param chat_id: Unique identifier for the target chat or username of the target channel
             (in the format @channelusername)
         :type chat_id: :obj:`typing.Union[base.Integer, base.String]`
+
+        :param message_thread_id: Unique identifier for the target message thread (topic) of the forum; for forum
+            supergroups only
+        :type message_thread_id: :obj:`typing.Optional[base.Integer]`
 
         :param animation: Animation to send. Pass a file_id as String to send an animation that exists
             on the Telegram servers (recommended), pass an HTTP URL as a String for Telegram to get an animation
@@ -884,6 +949,9 @@ class Bot(BaseBot, DataMixin, ContextInstanceMixin):
         :type reply_markup: :obj:`typing.Union[typing.Union[types.InlineKeyboardMarkup, types.ReplyKeyboardMarkup,
             types.ReplyKeyboardRemove, types.ForceReply], None]`
 
+        :param has_spoiler: Pass True if the animation needs to be covered with a spoiler animation
+        :type has_spoiler: :obj:`typing.Optional[base.Boolean]`
+
         :return: On success, the sent Message is returned
         :rtype: :obj:`types.Message`
         """
@@ -892,6 +960,8 @@ class Bot(BaseBot, DataMixin, ContextInstanceMixin):
         payload = generate_payload(**locals(), exclude=["animation", "thumb"])
         if self.parse_mode and caption_entities is None:
             payload.setdefault('parse_mode', self.parse_mode)
+        if self.protect_content is not None:
+            payload.setdefault('protect_content', self.protect_content)
 
         files = {}
         prepare_file(payload, files, 'animation', animation)
@@ -907,14 +977,15 @@ class Bot(BaseBot, DataMixin, ContextInstanceMixin):
                          parse_mode: typing.Optional[base.String] = None,
                          caption_entities: typing.Optional[typing.List[types.MessageEntity]] = None,
                          duration: typing.Optional[base.Integer] = None,
+                         message_thread_id: typing.Optional[base.Integer] = None,
                          disable_notification: typing.Optional[base.Boolean] = None,
                          protect_content: typing.Optional[base.Boolean] = None,
                          reply_to_message_id: typing.Optional[base.Integer] = None,
                          allow_sending_without_reply: typing.Optional[base.Boolean] = None,
                          reply_markup: typing.Union[types.InlineKeyboardMarkup,
-                                                    types.ReplyKeyboardMarkup,
-                                                    types.ReplyKeyboardRemove,
-                                                    types.ForceReply, None] = None,
+                         types.ReplyKeyboardMarkup,
+                         types.ReplyKeyboardRemove,
+                         types.ForceReply, None] = None,
                          ) -> types.Message:
         """
         Use this method to send audio files, if you want Telegram clients to display the file
@@ -927,6 +998,10 @@ class Bot(BaseBot, DataMixin, ContextInstanceMixin):
 
         :param chat_id: Unique identifier for the target chat or username of the target channel
         :type chat_id: :obj:`typing.Union[base.Integer, base.String]`
+
+        :param message_thread_id: Unique identifier for the target message thread (topic) of the forum; for forum
+            supergroups only
+        :type message_thread_id: :obj:`typing.Optional[base.Integer]`
 
         :param voice: Audio file to send
         :type voice: :obj:`typing.Union[base.InputFile, base.String]`
@@ -972,6 +1047,8 @@ class Bot(BaseBot, DataMixin, ContextInstanceMixin):
         payload = generate_payload(**locals(), exclude=['voice'])
         if self.parse_mode and caption_entities is None:
             payload.setdefault('parse_mode', self.parse_mode)
+        if self.protect_content is not None:
+            payload.setdefault('protect_content', self.protect_content)
 
         files = {}
         prepare_file(payload, files, 'voice', voice)
@@ -984,14 +1061,15 @@ class Bot(BaseBot, DataMixin, ContextInstanceMixin):
                               duration: typing.Optional[base.Integer] = None,
                               length: typing.Optional[base.Integer] = None,
                               thumb: typing.Union[base.InputFile, base.String, None] = None,
+                              message_thread_id: typing.Optional[base.Integer] = None,
                               disable_notification: typing.Optional[base.Boolean] = None,
                               protect_content: typing.Optional[base.Boolean] = None,
                               reply_to_message_id: typing.Optional[base.Integer] = None,
                               allow_sending_without_reply: typing.Optional[base.Boolean] = None,
                               reply_markup: typing.Union[types.InlineKeyboardMarkup,
-                                                         types.ReplyKeyboardMarkup,
-                                                         types.ReplyKeyboardRemove,
-                                                         types.ForceReply, None] = None,
+                              types.ReplyKeyboardMarkup,
+                              types.ReplyKeyboardRemove,
+                              types.ForceReply, None] = None,
                               ) -> types.Message:
         """
         As of v.4.0, Telegram clients support rounded square mp4 videos of up to 1 minute long.
@@ -1001,6 +1079,10 @@ class Bot(BaseBot, DataMixin, ContextInstanceMixin):
 
         :param chat_id: Unique identifier for the target chat or username of the target channel
         :type chat_id: :obj:`typing.Union[base.Integer, base.String]`
+
+        :param message_thread_id: Unique identifier for the target message thread (topic) of the forum; for forum
+            supergroups only
+        :type message_thread_id: :obj:`typing.Optional[base.Integer]`
 
         :param video_note: Video note to send
         :type video_note: :obj:`typing.Union[base.InputFile, base.String]`
@@ -1038,6 +1120,8 @@ class Bot(BaseBot, DataMixin, ContextInstanceMixin):
         """
         reply_markup = prepare_arg(reply_markup)
         payload = generate_payload(**locals(), exclude=['video_note'])
+        if self.protect_content is not None:
+            payload.setdefault('protect_content', self.protect_content)
 
         files = {}
         prepare_file(payload, files, 'video_note', video_note)
@@ -1048,6 +1132,7 @@ class Bot(BaseBot, DataMixin, ContextInstanceMixin):
     async def send_media_group(self,
                                chat_id: typing.Union[base.Integer, base.String],
                                media: typing.Union[types.MediaGroup, typing.List],
+                               message_thread_id: typing.Optional[base.Integer] = None,
                                disable_notification: typing.Optional[base.Boolean] = None,
                                protect_content: typing.Optional[base.Boolean] = None,
                                reply_to_message_id: typing.Optional[base.Integer] = None,
@@ -1064,6 +1149,10 @@ class Bot(BaseBot, DataMixin, ContextInstanceMixin):
         :param chat_id: Unique identifier for the target chat or username of the
             target channel (in the format @channelusername)
         :type chat_id: :obj:`typing.Union[base.Integer, base.String]`
+
+        :param message_thread_id: Unique identifier for the target message thread (topic) of the forum; for forum
+            supergroups only
+        :type message_thread_id: :obj:`typing.Optional[base.Integer]`
 
         :param media: A JSON-serialized array describing messages to be sent, must
             include 2-10 items
@@ -1101,6 +1190,8 @@ class Bot(BaseBot, DataMixin, ContextInstanceMixin):
 
         media = prepare_arg(media)
         payload = generate_payload(**locals(), exclude=['files'])
+        if self.protect_content is not None:
+            payload.setdefault('protect_content', self.protect_content)
 
         result = await self.request(api.Methods.SEND_MEDIA_GROUP, payload, files)
         return [types.Message(**message) for message in result]
@@ -1111,14 +1202,15 @@ class Bot(BaseBot, DataMixin, ContextInstanceMixin):
                             live_period: typing.Optional[base.Integer] = None,
                             heading: typing.Optional[base.Integer] = None,
                             proximity_alert_radius: typing.Optional[base.Integer] = None,
+                            message_thread_id: typing.Optional[base.Integer] = None,
                             disable_notification: typing.Optional[base.Boolean] = None,
                             protect_content: typing.Optional[base.Boolean] = None,
                             reply_to_message_id: typing.Optional[base.Integer] = None,
                             allow_sending_without_reply: typing.Optional[base.Boolean] = None,
                             reply_markup: typing.Union[types.InlineKeyboardMarkup,
-                                                       types.ReplyKeyboardMarkup,
-                                                       types.ReplyKeyboardRemove,
-                                                       types.ForceReply, None] = None,
+                            types.ReplyKeyboardMarkup,
+                            types.ReplyKeyboardRemove,
+                            types.ForceReply, None] = None,
                             ) -> types.Message:
         """
         Use this method to send point on the map.
@@ -1127,6 +1219,10 @@ class Bot(BaseBot, DataMixin, ContextInstanceMixin):
 
         :param chat_id: Unique identifier for the target chat or username of the target channel
         :type chat_id: :obj:`typing.Union[base.Integer, base.String]`
+
+        :param message_thread_id: Unique identifier for the target message thread (topic) of the forum; for forum
+            supergroups only
+        :type message_thread_id: :obj:`typing.Optional[base.Integer]`
 
         :param latitude: Latitude of the location
         :type latitude: :obj:`base.Float`
@@ -1174,6 +1270,8 @@ class Bot(BaseBot, DataMixin, ContextInstanceMixin):
         """
         reply_markup = prepare_arg(reply_markup)
         payload = generate_payload(**locals())
+        if self.protect_content is not None:
+            payload.setdefault('protect_content', self.protect_content)
 
         result = await self.request(api.Methods.SEND_LOCATION, payload)
         return types.Message(**result)
@@ -1244,7 +1342,7 @@ class Bot(BaseBot, DataMixin, ContextInstanceMixin):
                                          message_id: typing.Optional[base.Integer] = None,
                                          inline_message_id: typing.Optional[base.String] = None,
                                          reply_markup: typing.Union[types.InlineKeyboardMarkup,
-                                                                    None] = None) -> types.Message or base.Boolean:
+                                         None] = None) -> types.Message or base.Boolean:
         """
         Use this method to stop updating a live location message sent by the bot or via the bot
         (for inline bots) before live_period expires.
@@ -1281,14 +1379,15 @@ class Bot(BaseBot, DataMixin, ContextInstanceMixin):
                          foursquare_type: typing.Optional[base.String] = None,
                          google_place_id: typing.Optional[base.String] = None,
                          google_place_type: typing.Optional[base.String] = None,
+                         message_thread_id: typing.Optional[base.Integer] = None,
                          disable_notification: typing.Optional[base.Boolean] = None,
                          protect_content: typing.Optional[base.Boolean] = None,
                          reply_to_message_id: typing.Optional[base.Integer] = None,
                          allow_sending_without_reply: typing.Optional[base.Boolean] = None,
                          reply_markup: typing.Union[types.InlineKeyboardMarkup,
-                                                    types.ReplyKeyboardMarkup,
-                                                    types.ReplyKeyboardRemove,
-                                                    types.ForceReply, None] = None,
+                         types.ReplyKeyboardMarkup,
+                         types.ReplyKeyboardRemove,
+                         types.ForceReply, None] = None,
                          ) -> types.Message:
         """
         Use this method to send information about a venue.
@@ -1298,6 +1397,10 @@ class Bot(BaseBot, DataMixin, ContextInstanceMixin):
         :param chat_id: Unique identifier for the target chat or username of the
             target channel (in the format @channelusername)
         :type chat_id: :obj:`typing.Union[base.Integer, base.String]`
+
+        :param message_thread_id: Unique identifier for the target message thread (topic) of the forum; for forum
+            supergroups only
+        :type message_thread_id: :obj:`typing.Optional[base.Integer]`
 
         :param latitude: Latitude of the venue
         :type latitude: :obj:`base.Float`
@@ -1352,6 +1455,8 @@ class Bot(BaseBot, DataMixin, ContextInstanceMixin):
         """
         reply_markup = prepare_arg(reply_markup)
         payload = generate_payload(**locals())
+        if self.protect_content is not None:
+            payload.setdefault('protect_content', self.protect_content)
 
         result = await self.request(api.Methods.SEND_VENUE, payload)
         return types.Message(**result)
@@ -1360,14 +1465,15 @@ class Bot(BaseBot, DataMixin, ContextInstanceMixin):
                            phone_number: base.String, first_name: base.String,
                            last_name: typing.Optional[base.String] = None,
                            vcard: typing.Optional[base.String] = None,
+                           message_thread_id: typing.Optional[base.Integer] = None,
                            disable_notification: typing.Optional[base.Boolean] = None,
                            protect_content: typing.Optional[base.Boolean] = None,
                            reply_to_message_id: typing.Optional[base.Integer] = None,
                            allow_sending_without_reply: typing.Optional[base.Boolean] = None,
                            reply_markup: typing.Union[types.InlineKeyboardMarkup,
-                                                      types.ReplyKeyboardMarkup,
-                                                      types.ReplyKeyboardRemove,
-                                                      types.ForceReply, None] = None,
+                           types.ReplyKeyboardMarkup,
+                           types.ReplyKeyboardRemove,
+                           types.ForceReply, None] = None,
                            ) -> types.Message:
         """
         Use this method to send phone contacts.
@@ -1376,6 +1482,10 @@ class Bot(BaseBot, DataMixin, ContextInstanceMixin):
 
         :param chat_id: Unique identifier for the target chat or username of the target channel
         :type chat_id: :obj:`typing.Union[base.Integer, base.String]`
+
+        :param message_thread_id: Unique identifier for the target message thread (topic) of the forum; for forum
+            supergroups only
+        :type message_thread_id: :obj:`typing.Optional[base.Integer]`
 
         :param phone_number: Contact's phone number
         :type phone_number: :obj:`base.String`
@@ -1415,6 +1525,8 @@ class Bot(BaseBot, DataMixin, ContextInstanceMixin):
         payload = generate_payload(**locals())
 
         result = await self.request(api.Methods.SEND_CONTACT, payload)
+        if self.protect_content is not None:
+            payload.setdefault('protect_content', self.protect_content)
         return types.Message(**result)
 
     async def send_poll(self,
@@ -1435,14 +1547,15 @@ class Bot(BaseBot, DataMixin, ContextInstanceMixin):
                             datetime.timedelta,
                             None] = None,
                         is_closed: typing.Optional[base.Boolean] = None,
+                        message_thread_id: typing.Optional[base.Integer] = None,
                         disable_notification: typing.Optional[base.Boolean] = None,
                         protect_content: typing.Optional[base.Boolean] = None,
                         reply_to_message_id: typing.Optional[base.Integer] = None,
                         allow_sending_without_reply: typing.Optional[base.Boolean] = None,
                         reply_markup: typing.Union[types.InlineKeyboardMarkup,
-                                                   types.ReplyKeyboardMarkup,
-                                                   types.ReplyKeyboardRemove,
-                                                   types.ForceReply, None] = None,
+                        types.ReplyKeyboardMarkup,
+                        types.ReplyKeyboardRemove,
+                        types.ForceReply, None] = None,
                         ) -> types.Message:
         """
         Use this method to send a native poll. On success, the sent Message is
@@ -1453,6 +1566,10 @@ class Bot(BaseBot, DataMixin, ContextInstanceMixin):
         :param chat_id: Unique identifier for the target chat or username of the
             target channel (in the format @channelusername)
         :type chat_id: :obj:`typing.Union[base.Integer, base.String]`
+
+        :param message_thread_id: Unique identifier for the target message thread (topic) of the forum; for forum
+            supergroups only
+        :type message_thread_id: :obj:`typing.Optional[base.Integer]`
 
         :param question: Poll question, 1-300 characters
         :type question: :obj:`base.String`
@@ -1533,21 +1650,24 @@ class Bot(BaseBot, DataMixin, ContextInstanceMixin):
         payload = generate_payload(**locals())
         if self.parse_mode and explanation_entities is None:
             payload.setdefault('explanation_parse_mode', self.parse_mode)
+        if self.protect_content is not None:
+            payload.setdefault('protect_content', self.protect_content)
 
         result = await self.request(api.Methods.SEND_POLL, payload)
         return types.Message(**result)
 
     async def send_dice(self,
                         chat_id: typing.Union[base.Integer, base.String],
+                        message_thread_id: typing.Optional[base.Integer] = None,
                         disable_notification: typing.Optional[base.Boolean] = None,
                         protect_content: typing.Optional[base.Boolean] = None,
                         emoji: typing.Optional[base.String] = None,
                         reply_to_message_id: typing.Optional[base.Integer] = None,
                         allow_sending_without_reply: typing.Optional[base.Boolean] = None,
                         reply_markup: typing.Union[types.InlineKeyboardMarkup,
-                                                   types.ReplyKeyboardMarkup,
-                                                   types.ReplyKeyboardRemove,
-                                                   types.ForceReply, None] = None,
+                        types.ReplyKeyboardMarkup,
+                        types.ReplyKeyboardRemove,
+                        types.ForceReply, None] = None,
                         ) -> types.Message:
         """
         Use this method to send an animated emoji that will display a random value.
@@ -1558,6 +1678,10 @@ class Bot(BaseBot, DataMixin, ContextInstanceMixin):
         :param chat_id: Unique identifier for the target chat or username of the
             target channel (in the format @channelusername)
         :type chat_id: :obj:`typing.Union[base.Integer, base.String]`
+
+        :param message_thread_id: Unique identifier for the target message thread (topic) of the forum; for forum
+            supergroups only
+        :type message_thread_id: :obj:`typing.Optional[base.Integer]`
 
         :param emoji: Emoji on which the dice throw animation is based. Currently,
             must be one of “🎲”, “🎯”, “🏀”, “⚽”, or “🎰”. Dice can have values 1-6
@@ -1592,12 +1716,14 @@ class Bot(BaseBot, DataMixin, ContextInstanceMixin):
 
         reply_markup = prepare_arg(reply_markup)
         payload = generate_payload(**locals())
+        if self.protect_content is not None:
+            payload.setdefault('protect_content', self.protect_content)
 
         result = await self.request(api.Methods.SEND_DICE, payload)
         return types.Message(**result)
 
     async def send_chat_action(self, chat_id: typing.Union[base.Integer, base.String],
-                               action: base.String) -> base.Boolean:
+                               action: base.String, message_thread_id: typing.Optional[base.Integer] = None) -> base.Boolean:
         """
         Use this method when you need to tell the user that something is
         happening on the bot's side. The status is set for 5 seconds or
@@ -1628,6 +1754,9 @@ class Bot(BaseBot, DataMixin, ContextInstanceMixin):
             `find_location` for location data, `record_video_note` or
             `upload_video_note` for video notes.
         :type action: :obj:`base.String`
+
+        :param message_thread_id: Unique identifier for the target message thread; supergroups only
+        :type message_thread_id: :obj:`typing.Optional[base.Integer]`
 
         :return: Returns True on success
         :rtype: :obj:`base.Boolean`
@@ -1681,7 +1810,7 @@ class Bot(BaseBot, DataMixin, ContextInstanceMixin):
                               chat_id: typing.Union[base.Integer, base.String],
                               user_id: base.Integer,
                               until_date: typing.Union[base.Integer, datetime.datetime,
-                                                       datetime.timedelta, None] = None,
+                              datetime.timedelta, None] = None,
                               revoke_messages: typing.Optional[base.Boolean] = None,
                               ) -> base.Boolean:
         """
@@ -1727,7 +1856,7 @@ class Bot(BaseBot, DataMixin, ContextInstanceMixin):
                                chat_id: typing.Union[base.Integer, base.String],
                                user_id: base.Integer,
                                until_date: typing.Union[base.Integer, datetime.datetime,
-                                                        datetime.timedelta, None] = None,
+                               datetime.timedelta, None] = None,
                                revoke_messages: typing.Optional[base.Boolean] = None,
                                ) -> base.Boolean:
         """Renamed to ban_chat_member."""
@@ -1771,16 +1900,20 @@ class Bot(BaseBot, DataMixin, ContextInstanceMixin):
 
         return await self.request(api.Methods.UNBAN_CHAT_MEMBER, payload)
 
-    async def restrict_chat_member(self, chat_id: typing.Union[base.Integer, base.String],
-                                   user_id: base.Integer,
-                                   permissions: typing.Optional[types.ChatPermissions] = None,
-                                   # permissions argument need to be required after removing other `can_*` arguments
-                                   until_date: typing.Union[
-                                       base.Integer, datetime.datetime, datetime.timedelta, None] = None,
-                                   can_send_messages: typing.Optional[base.Boolean] = None,
-                                   can_send_media_messages: typing.Optional[base.Boolean] = None,
-                                   can_send_other_messages: typing.Optional[base.Boolean] = None,
-                                   can_add_web_page_previews: typing.Optional[base.Boolean] = None) -> base.Boolean:
+    async def restrict_chat_member(
+        self,
+        chat_id: typing.Union[base.Integer, base.String],
+        user_id: base.Integer,
+        permissions: typing.Optional[types.ChatPermissions],
+        use_independent_chat_permissions: typing.Optional[base.Boolean] = None,
+        # permissions argument need to be required after removing other `can_*` arguments
+        until_date: typing.Union[
+           base.Integer, datetime.datetime, datetime.timedelta, None] = None,
+        can_send_messages: typing.Optional[base.Boolean] = None,
+        can_send_media_messages: typing.Optional[base.Boolean] = None,
+        can_send_other_messages: typing.Optional[base.Boolean] = None,
+        can_add_web_page_previews: typing.Optional[base.Boolean] = None,
+    ) -> base.Boolean:
         """
         Use this method to restrict a user in a supergroup.
         The bot must be an administrator in the supergroup for this to work and must have the appropriate admin rights.
@@ -1794,6 +1927,15 @@ class Bot(BaseBot, DataMixin, ContextInstanceMixin):
         :type user_id: :obj:`base.Integer`
         :param permissions: New user permissions
         :type permissions: :obj:`ChatPermissions`
+        :param use_independent_chat_permissions: Pass True if chat
+            permissions are set independently. Otherwise,
+            the can_send_other_messages and can_add_web_page_previews
+            permissions will imply the can_send_messages,
+            can_send_audios, can_send_documents, can_send_photos,
+            can_send_videos, can_send_video_notes, and
+            can_send_voice_notes permissions; the can_send_polls
+            permission will imply the can_send_messages permission.
+        :type use_independent_chat_permissions: :obj:`typing.Optional[base.Boolean]`
         :param until_date: Date when restrictions will be lifted for the user, unix time
         :type until_date: :obj:`typing.Optional[base.Integer]`
         :param can_send_messages: Pass True, if the user can send text messages, contacts, locations and venues
@@ -1841,6 +1983,7 @@ class Bot(BaseBot, DataMixin, ContextInstanceMixin):
                                   can_pin_messages: typing.Optional[base.Boolean] = None,
                                   can_promote_members: typing.Optional[base.Boolean] = None,
                                   can_manage_video_chats: typing.Optional[base.Boolean] = None,
+                                  can_manage_topics: typing.Optional[base.Boolean] = None,
                                   ) -> base.Boolean:
         """
         Use this method to promote or demote a user in a supergroup or a channel.
@@ -1894,12 +2037,15 @@ class Bot(BaseBot, DataMixin, ContextInstanceMixin):
 
         :param can_manage_video_chats: Pass True, if the administrator can manage video chats
 
+        :param can_manage_topics: Pass True if the user is allowed to create, rename, close, and reopen forum topics, supergroups only
+        :type can_manage_topics: :obj:`typing.Optional[base.Boolean]`
+
         :return: Returns True on success
         :rtype: :obj:`base.Boolean`
         """
         if can_manage_voice_chats:
-            warnings.warn(
-                "Argument `can_manage_voice_chats` was renamed to `can_manage_video_chats` and will be removed in aiogram 2.21")
+            warnings.warn("Argument `can_manage_voice_chats` was renamed to `can_manage_video_chats` and will be "
+                          "removed in aiogram 2.21")
             can_manage_video_chats = can_manage_voice_chats
             can_manage_voice_chats = None
 
@@ -1973,8 +2119,12 @@ class Bot(BaseBot, DataMixin, ContextInstanceMixin):
 
         return await self.request(api.Methods.UNBAN_CHAT_SENDER_CHAT, payload)
 
-    async def set_chat_permissions(self, chat_id: typing.Union[base.Integer, base.String],
-                                   permissions: types.ChatPermissions) -> base.Boolean:
+    async def set_chat_permissions(
+        self,
+        chat_id: typing.Union[base.Integer, base.String],
+        permissions: types.ChatPermissions,
+        use_independent_chat_permissions: base.Boolean = None,
+    ) -> base.Boolean:
         """
         Use this method to set default chat permissions for all members.
         The bot must be an administrator in the group or a supergroup for this to work and must have the
@@ -1984,6 +2134,15 @@ class Bot(BaseBot, DataMixin, ContextInstanceMixin):
 
         :param chat_id: Unique identifier for the target chat or username of the target supergroup
         :param permissions: New default chat permissions
+        :param use_independent_chat_permissions: Pass True if chat
+            permissions are set independently. Otherwise,
+            the can_send_other_messages and can_add_web_page_previews
+            permissions will imply the can_send_messages,
+            can_send_audios, can_send_documents, can_send_photos,
+            can_send_videos, can_send_video_notes, and
+            can_send_voice_notes permissions; the can_send_polls
+            permission will imply the can_send_messages permission.
+        :type use_independent_chat_permissions: :obj:`typing.Optional[base.Boolean]`
         :return: True on success.
         """
         permissions = prepare_arg(permissions)
@@ -2010,7 +2169,7 @@ class Bot(BaseBot, DataMixin, ContextInstanceMixin):
     async def create_chat_invite_link(self,
                                       chat_id: typing.Union[base.Integer, base.String],
                                       expire_date: typing.Union[base.Integer, datetime.datetime,
-                                                                datetime.timedelta, None] = None,
+                                      datetime.timedelta, None] = None,
                                       member_limit: typing.Optional[base.Integer] = None,
                                       name: typing.Optional[base.String] = None,
                                       creates_join_request: typing.Optional[base.Boolean] = None,
@@ -2055,7 +2214,7 @@ class Bot(BaseBot, DataMixin, ContextInstanceMixin):
                                     chat_id: typing.Union[base.Integer, base.String],
                                     invite_link: base.String,
                                     expire_date: typing.Union[base.Integer, datetime.datetime,
-                                                              datetime.timedelta, None] = None,
+                                    datetime.timedelta, None] = None,
                                     member_limit: typing.Optional[base.Integer] = None,
                                     name: typing.Optional[base.String] = None,
                                     creates_join_request: typing.Optional[base.Boolean] = None,
@@ -2340,6 +2499,97 @@ class Bot(BaseBot, DataMixin, ContextInstanceMixin):
 
         return await self.request(api.Methods.UNPIN_ALL_CHAT_MESSAGES, payload)
 
+    async def close_general_forum_topic(
+        self,
+        chat_id: typing.Union[base.Integer, base.String],
+    ) -> base.Boolean:
+        """
+        Use this method to close an open 'General' topic in a forum supergroup chat.
+        The bot must be an administrator in the chat for this to work and must have the *can_manage_topics* administrator rights.
+
+        Returns :code:`True` on success.
+
+        :param chat_id: Unique identifier for the target chat or username of the target supergroup (in the format :code:`@supergroupusername`)
+        :return: Returns :code:`True` on success.
+        """
+
+        payload = generate_payload(**locals())
+
+        return await self.request(api.Methods.CLOSE_GENERAL_FORUM_TOPIC, payload)
+
+    async def edit_general_forum_topic(
+        self,
+        chat_id: typing.Union[base.Integer, base.String],
+        name: base.String,
+    ) -> base.Boolean:
+        """
+        Use this method to edit the name of the 'General' topic in a forum supergroup chat.
+        The bot must be an administrator in the chat for this to work and must have *can_manage_topics* administrator rights.
+
+        Returns :code:`True` on success.
+
+        :param chat_id: Unique identifier for the target chat or username of the target supergroup (in the format :code:`@supergroupusername`)
+        :param name: New topic name, 1-128 characters
+        :return: Returns :code:`True` on success.
+        """
+
+        payload = generate_payload(**locals())
+
+        return await self.request(api.Methods.EDIT_GENERAL_FORUM_TOPIC, payload)
+
+    async def hide_general_forum_topic(
+        self,
+        chat_id: typing.Union[base.Integer, base.String],
+    ) -> base.Boolean:
+        """
+        Use this method to hide the 'General' topic in a forum supergroup chat.
+        The bot must be an administrator in the chat for this to work and must have the *can_manage_topics* administrator rights.
+
+        The topic will be automatically closed if it was open. Returns :code:`True` on success.
+
+        :param chat_id: Unique identifier for the target chat or username of the target supergroup (in the format :code:`@supergroupusername`)
+        :return: Returns :code:`True` on success.
+        """
+
+        payload = generate_payload(**locals())
+
+        return await self.request(api.Methods.HIDE_GENERAL_FORUM_TOPIC, payload)
+
+    async def reopen_general_forum_topic(
+        self,
+        chat_id: typing.Union[base.Integer, base.String],
+    ) -> base.Boolean:
+        """
+        Use this method to reopen a closed 'General' topic in a forum supergroup chat.
+        The bot must be an administrator in the chat for this to work and must have the *can_manage_topics* administrator rights.
+        The topic will be automatically unhidden if it was hidden. Returns :code:`True` on success.
+
+        :param chat_id: Unique identifier for the target chat or username of the target supergroup (in the format :code:`@supergroupusername`)
+        :return: Returns :code:`True` on success.
+        """
+
+        payload = generate_payload(**locals())
+
+        return await self.request(api.Methods.REOPEN_GENERAL_FORUM_TOPIC, payload)
+
+    async def unhide_general_forum_topic(
+        self,
+        chat_id: typing.Union[base.Integer, base.String],
+    ) -> base.Boolean:
+        """
+        Use this method to unhide the 'General' topic in a forum supergroup chat.
+        The bot must be an administrator in the chat for this to work and must have the *can_manage_topics* administrator rights.
+
+        Returns :code:`True` on success.
+
+        :param chat_id: Unique identifier for the target chat or username of the target supergroup (in the format :code:`@supergroupusername`)
+        :return: Returns :code:`True` on success.
+        """
+
+        payload = generate_payload(**locals())
+
+        return await self.request(api.Methods.UNPIN_ALL_CHAT_MESSAGES, payload)
+
     async def leave_chat(self, chat_id: typing.Union[base.Integer, base.String]) -> base.Boolean:
         """
         Use this method for your bot to leave a group, supergroup or channel.
@@ -2472,6 +2722,138 @@ class Bot(BaseBot, DataMixin, ContextInstanceMixin):
         payload = generate_payload(**locals())
 
         return await self.request(api.Methods.DELETE_CHAT_STICKER_SET, payload)
+
+    async def get_forum_topic_icon_stickers(self) -> typing.List[types.Sticker]:
+        """
+        Use this method to get custom emoji stickers, which can be used as a forum topic icon by any user.
+        Requires no parameters.
+
+        Returns an Array of Sticker objects.
+
+        Source: https://core.telegram.org/bots/api#getforumtopiciconstickers
+
+        :return: Returns an Array of Sticker objects.
+        """
+        payload = generate_payload(**locals())
+        result = await self.request(api.Methods.GET_FORUM_TOPIC_ICON_STICKERS, payload)
+        return [types.Sticker(**sticker) for sticker in result]
+
+    async def create_forum_topic(self, chat_id: typing.Union[int, str],
+                                 name: base.String,
+                                 icon_color: typing.Optional[base.Integer] = None,
+                                 icon_custom_emoji_id: typing.Optional[base.String] = None) -> types.ForumTopic:
+        """
+        Use this method to create a topic in a forum supergroup chat.
+        The bot must be an administrator in the chat for this to work and must have the can_manage_topics administrator rights.
+
+        Returns information about the created topic as a ForumTopic object.
+
+        Source: https://core.telegram.org/bots/api#createforumtopic
+
+        :param chat_id: Unique identifier for the target chat or username of the target supergroup (in the format @supergroupusername)
+        :param name: Topic name, 1-128 characters
+        :param icon_color: Color of the topic icon in RGB format.
+            Currently, must be one of 0x6FB9F0, 0xFFD67E, 0xCB86DB, 0x8EEE98, 0xFF93B2, or 0xFB6F5F
+        :param icon_custom_emoji_id: Unique identifier of the custom emoji shown as the topic icon.
+            Use getForumTopicIconStickers to get all allowed custom emoji identifiers.
+        :return: Returns information about the created topic as a ForumTopic object.
+        """
+        payload = generate_payload(**locals())
+        result = await self.request(api.Methods.CREATE_FORUM_TOPIC, payload)
+        return types.ForumTopic(**result)
+
+    async def edit_forum_topic(self, chat_id: typing.Union[int, str],
+                               name: typing.Optional[base.String] = None,
+                               message_thread_id: typing.Optional[base.Integer] = None,
+                               icon_custom_emoji_id: typing.Optional[base.String] = None) -> base.Boolean:
+        """
+        Use this method to edit name and icon of a topic in a forum supergroup chat.
+
+        The bot must be an administrator in the chat for this to work and must have can_manage_topics administrator rights,
+        unless it is the creator of the topic.
+
+        Returns True on success.
+
+        Source: https://core.telegram.org/bots/api#editforumtopic
+
+        :param chat_id: Unique identifier for the target chat or username of the target supergroup (in the format @supergroupusername)
+        :param name: Unique identifier for the target message thread of the forum topic
+        :param message_thread_id: New topic name, 1-128 characters
+        :param icon_custom_emoji_id: New unique identifier of the custom emoji shown as the topic icon.
+            Use getForumTopicIconStickers to get all allowed custom emoji identifiers
+        :return: Returns True on success.
+        """
+        payload = generate_payload(**locals())
+        return await self.request(api.Methods.EDIT_FORUM_TOPIC, payload)
+
+    async def close_forum_topic(self, chat_id: typing.Union[int, str],
+                                message_thread_id: typing.Optional[base.Integer] = None) -> base.Boolean:
+        """
+        Use this method to close an open topic in a forum supergroup chat.
+        The bot must be an administrator in the chat for this to work and must have the can_manage_topics administrator rights,
+        unless it is the creator of the topic.
+
+        Returns True on success.
+
+        :param chat_id: Unique identifier for the target chat or username of the target supergroup (in the format @supergroupusername)
+        :param message_thread_id: Unique identifier for the target message thread of the forum topic
+        :return: Returns True on success.
+        """
+        payload = generate_payload(**locals())
+        return await self.request(api.Methods.CLOSE_FORUM_TOPIC, payload)
+
+    async def reopen_forum_topic(self, chat_id: typing.Union[int, str],
+                                 message_thread_id: typing.Optional[base.Integer] = None) -> base.Boolean:
+        """
+        Use this method to reopen a closed topic in a forum supergroup chat.
+        The bot must be an administrator in the chat for this to work and must have the can_manage_topics administrator rights,
+        unless it is the creator of the topic.
+
+        Returns True on success.
+
+        Source: https://core.telegram.org/bots/api#reopenforumtopic
+
+        :param chat_id: Unique identifier for the target chat or username of the target supergroup (in the format @supergroupusername)
+        :param message_thread_id: Unique identifier for the target message thread of the forum topic
+        :return: Returns True on success.
+        """
+        payload = generate_payload(**locals())
+        return await self.request(api.Methods.REOPEN_FORUM_TOPIC, payload)
+
+    async def delete_forum_topic(self, chat_id: typing.Union[int, str],
+                                 message_thread_id: typing.Optional[base.Integer] = None) -> base.Boolean:
+        """
+        Use this method to delete a forum topic along with all its messages in a forum supergroup chat.
+        The bot must be an administrator in the chat for this to work and must have the can_delete_messages administrator rights.
+
+        Returns True on success.
+
+        Source: https://core.telegram.org/bots/api#deleteforumtopic
+
+        :param chat_id: Unique identifier for the target chat or username of the target supergroup (in the format @supergroupusername)
+        :param message_thread_id: Unique identifier for the target message thread of the forum topic
+        :return: Returns True on success.
+        """
+        payload = generate_payload(**locals())
+        return await self.request(api.Methods.DELETE_FORUM_TOPIC, payload)
+
+    async def unpin_all_forum_topic_messages(self,  chat_id: typing.Union[int, str],
+                                 message_thread_id: typing.Optional[base.Integer] = None) -> base.Boolean:
+        """
+        Use this method to clear the list of pinned messages in a forum topic.
+        The bot must be an administrator in the chat for this to work and must have the can_pin_messages administrator
+        right in the supergroup.
+
+        Returns True on success.
+
+        Source: https://core.telegram.org/bots/api#unpinallforumtopicmessages
+
+        :param chat_id: Unique identifier for the target chat or username of the target supergroup (in the format @supergroupusername)
+        :param message_thread_id: Unique identifier for the target message thread of the forum topic
+        :return: Returns True on success.
+        """
+        payload = generate_payload(**locals())
+        return await self.request(api.Methods.UNPIN_ALL_FORUM_TOPIC_MESSAGES, payload)
 
     async def answer_callback_query(self, callback_query_id: base.String,
                                     text: typing.Optional[base.String] = None,
@@ -2691,7 +3073,7 @@ class Bot(BaseBot, DataMixin, ContextInstanceMixin):
                                 entities: typing.Optional[typing.List[types.MessageEntity]] = None,
                                 disable_web_page_preview: typing.Optional[base.Boolean] = None,
                                 reply_markup: typing.Union[types.InlineKeyboardMarkup,
-                                                           None] = None,
+                                None] = None,
                                 ) -> types.Message or base.Boolean:
         """
         Use this method to edit text and game messages sent by the bot or via the bot (for inline bots).
@@ -2749,7 +3131,7 @@ class Bot(BaseBot, DataMixin, ContextInstanceMixin):
                                    parse_mode: typing.Optional[base.String] = None,
                                    caption_entities: typing.Optional[typing.List[types.MessageEntity]] = None,
                                    reply_markup: typing.Union[types.InlineKeyboardMarkup,
-                                                              None] = None) -> types.Message or base.Boolean:
+                                   None] = None) -> types.Message or base.Boolean:
         """
         Use this method to edit captions of messages sent by the bot or via the bot (for inline bots).
 
@@ -2845,7 +3227,7 @@ class Bot(BaseBot, DataMixin, ContextInstanceMixin):
                                         message_id: typing.Optional[base.Integer] = None,
                                         inline_message_id: typing.Optional[base.String] = None,
                                         reply_markup: typing.Union[types.InlineKeyboardMarkup,
-                                                                   None] = None) -> types.Message or base.Boolean:
+                                        None] = None) -> types.Message or base.Boolean:
         """
         Use this method to edit only the reply markup of messages sent by the bot or via the bot (for inline bots).
 
@@ -2922,14 +3304,15 @@ class Bot(BaseBot, DataMixin, ContextInstanceMixin):
 
     async def send_sticker(self, chat_id: typing.Union[base.Integer, base.String],
                            sticker: typing.Union[base.InputFile, base.String],
+                           message_thread_id: typing.Optional[base.Integer] = None,
                            disable_notification: typing.Optional[base.Boolean] = None,
                            protect_content: typing.Optional[base.Boolean] = None,
                            reply_to_message_id: typing.Optional[base.Integer] = None,
                            allow_sending_without_reply: typing.Optional[base.Boolean] = None,
                            reply_markup: typing.Union[types.InlineKeyboardMarkup,
-                                                      types.ReplyKeyboardMarkup,
-                                                      types.ReplyKeyboardRemove,
-                                                      types.ForceReply, None] = None,
+                           types.ReplyKeyboardMarkup,
+                           types.ReplyKeyboardRemove,
+                           types.ForceReply, None] = None,
                            ) -> types.Message:
         """
         Use this method to send .webp stickers.
@@ -2938,6 +3321,10 @@ class Bot(BaseBot, DataMixin, ContextInstanceMixin):
 
         :param chat_id: Unique identifier for the target chat or username of the target channel
         :type chat_id: :obj:`typing.Union[base.Integer, base.String]`
+
+        :param message_thread_id: Unique identifier for the target message thread (topic) of the forum; for forum
+            supergroups only
+        :type message_thread_id: :obj:`typing.Optional[base.Integer]`
 
         :param sticker: Sticker to send
         :type sticker: :obj:`typing.Union[base.InputFile, base.String]`
@@ -2966,6 +3353,8 @@ class Bot(BaseBot, DataMixin, ContextInstanceMixin):
         """
         reply_markup = prepare_arg(reply_markup)
         payload = generate_payload(**locals(), exclude=['sticker'])
+        if self.protect_content is not None:
+            payload.setdefault('protect_content', self.protect_content)
 
         files = {}
         prepare_file(payload, files, 'sticker', sticker)
@@ -3012,6 +3401,24 @@ class Bot(BaseBot, DataMixin, ContextInstanceMixin):
         result = await self.request(api.Methods.UPLOAD_STICKER_FILE, payload, files)
         return types.File(**result)
 
+    async def get_custom_emoji_stickers(self, custom_emoji_ids: typing.List[base.String]) -> typing.List[types.Sticker]:
+        """
+        Use this method to get information about custom emoji stickers by their identifiers.
+
+
+        Source: https://core.telegram.org/bots/api#getcustomemojistickers
+
+        :param custom_emoji_ids: List of custom emoji identifiers. At most 200 custom emoji identifiers can be specified.
+        :type custom_emoji_ids: :obj:`typing.List[base.String]`
+        :return: Returns an Array of Sticker objects.
+        :rtype: :obj:`typing.List[types.Sticker]`
+        """
+        custom_emoji_ids = prepare_arg(custom_emoji_ids)
+        payload = generate_payload(**locals())
+
+        result = await self.request(api.Methods.GET_CUSTOM_EMOJI_STICKERS, payload)
+        return [types.Sticker(**item) for item in result]
+
     async def create_new_sticker_set(self,
                                      user_id: base.Integer,
                                      name: base.String,
@@ -3021,6 +3428,7 @@ class Bot(BaseBot, DataMixin, ContextInstanceMixin):
                                      tgs_sticker: base.InputFile = None,
                                      webm_sticker: base.InputFile = None,
                                      contains_masks: typing.Optional[base.Boolean] = None,
+                                     sticker_type: typing.Optional[base.String] = None,
                                      mask_position: typing.Optional[types.MaskPosition] = None) -> base.Boolean:
         """
         Use this method to create a new sticker set owned by a user.
@@ -3049,7 +3457,11 @@ class Bot(BaseBot, DataMixin, ContextInstanceMixin):
         :type tgs_sticker: :obj:`base.InputFile`
         :param webm_sticker: WEBM video with the sticker, uploaded using multipart/form-data.
             See https://core.telegram.org/stickers#video-sticker-requirements for technical requirements
-        :type webm_sticker: :obj:`base.InputFile`
+        :type webm_sticker: :obj:`base.String`
+        :param sticker_type: Type of stickers in the set, pass “regular” or “mask”.
+            Custom emoji sticker sets can't be created via the Bot API at the moment.
+            By default, a regular sticker set is created.
+        :type sticker_type: :obj:`base.InputFile`
         :param emojis: One or more emoji corresponding to the sticker
         :type emojis: :obj:`base.String`
         :param contains_masks: Pass True, if a set of mask stickers should be created
@@ -3061,6 +3473,12 @@ class Bot(BaseBot, DataMixin, ContextInstanceMixin):
         """
         mask_position = prepare_arg(mask_position)
         payload = generate_payload(**locals(), exclude=['png_sticker', 'tgs_sticker', 'webm_sticker'])
+        if contains_masks is not None:
+            warnings.warn(
+                message="The parameter `contains_masks` deprecated, use `sticker_type` instead.",
+                category=DeprecationWarning,
+                stacklevel=2
+            )
 
         files = {}
         prepare_file(payload, files, 'png_sticker', png_sticker)
@@ -3275,6 +3693,7 @@ class Bot(BaseBot, DataMixin, ContextInstanceMixin):
                            send_phone_number_to_provider: typing.Optional[base.Boolean] = None,
                            send_email_to_provider: typing.Optional[base.Boolean] = None,
                            is_flexible: typing.Optional[base.Boolean] = None,
+                           message_thread_id: typing.Optional[base.Integer] = None,
                            disable_notification: typing.Optional[base.Boolean] = None,
                            protect_content: typing.Optional[base.Boolean] = None,
                            reply_to_message_id: typing.Optional[base.Integer] = None,
@@ -3290,6 +3709,10 @@ class Bot(BaseBot, DataMixin, ContextInstanceMixin):
             username of the target channel (in the format
             @channelusername)
         :type chat_id: :obj:`typing.Union[base.Integer, base.String]`
+
+        :param message_thread_id: Unique identifier for the target message thread (topic) of the forum; for forum
+            supergroups only
+        :type message_thread_id: :obj:`typing.Optional[base.Integer]`
 
         :param title: Product name, 1-32 characters
         :type title: :obj:`base.String`
@@ -3398,6 +3821,8 @@ class Bot(BaseBot, DataMixin, ContextInstanceMixin):
         reply_markup = prepare_arg(reply_markup)
         provider_data = prepare_arg(provider_data)
         payload_ = generate_payload(**locals())
+        if self.protect_content is not None:
+            payload.setdefault('protect_content', self.protect_content)
 
         result = await self.request(api.Methods.SEND_INVOICE, payload_)
         return types.Message(**result)
@@ -3603,6 +4028,8 @@ class Bot(BaseBot, DataMixin, ContextInstanceMixin):
         """
         reply_markup = prepare_arg(reply_markup)
         payload = generate_payload(**locals())
+        if self.protect_content is not None:
+            payload.setdefault('protect_content', self.protect_content)
 
         result = await self.request(api.Methods.SEND_GAME, payload)
         return types.Message(**result)
@@ -3613,7 +4040,7 @@ class Bot(BaseBot, DataMixin, ContextInstanceMixin):
                              chat_id: typing.Optional[base.Integer] = None,
                              message_id: typing.Optional[base.Integer] = None,
                              inline_message_id: typing.Union[base.String,
-                                                             None] = None) -> types.Message or base.Boolean:
+                             None] = None) -> types.Message or base.Boolean:
         """
         Use this method to set the score of the specified user in a game.
 
@@ -3651,7 +4078,7 @@ class Bot(BaseBot, DataMixin, ContextInstanceMixin):
                                    chat_id: typing.Optional[base.Integer] = None,
                                    message_id: typing.Optional[base.Integer] = None,
                                    inline_message_id: typing.Union[base.String,
-                                                                   None] = None) -> typing.List[types.GameHighScore]:
+                                   None] = None) -> typing.List[types.GameHighScore]:
         """
         Use this method to get data for high score tables.
 

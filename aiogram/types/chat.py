@@ -27,10 +27,14 @@ class Chat(base.TelegramObject):
     username: base.String = fields.Field()
     first_name: base.String = fields.Field()
     last_name: base.String = fields.Field()
+    is_forum: base.Boolean = fields.Field()
     all_members_are_administrators: base.Boolean = fields.Field()
     photo: ChatPhoto = fields.Field(base=ChatPhoto)
+    active_usernames: typing.List[base.String] = fields.Field()
+    emoji_status_custom_emoji_id: base.String = fields.Field()
     bio: base.String = fields.Field()
     has_private_forwards: base.Boolean = fields.Field()
+    has_restricted_voice_and_video_messages: base.Boolean = fields.Field()
     join_to_send_messages: base.Boolean = fields.Field()
     join_by_request: base.Boolean = fields.Field()
     description: base.String = fields.Field()
@@ -44,6 +48,8 @@ class Chat(base.TelegramObject):
     can_set_sticker_set: base.Boolean = fields.Field()
     linked_chat_id: base.Integer = fields.Field()
     location: ChatLocation = fields.Field()
+    has_hidden_members: base.Boolean = fields.Field()
+    has_aggressive_anti_spam_enabled: base.Boolean = fields.Field()
 
     def __hash__(self):
         return self.id
@@ -308,14 +314,18 @@ class Chat(base.TelegramObject):
     async def promote(self,
                       user_id: base.Integer,
                       is_anonymous: typing.Optional[base.Boolean] = None,
+                      can_manage_chat: typing.Optional[base.Boolean] = None,
                       can_change_info: typing.Optional[base.Boolean] = None,
                       can_post_messages: typing.Optional[base.Boolean] = None,
                       can_edit_messages: typing.Optional[base.Boolean] = None,
                       can_delete_messages: typing.Optional[base.Boolean] = None,
+                      can_manage_voice_chats: typing.Optional[base.Boolean] = None,
                       can_invite_users: typing.Optional[base.Boolean] = None,
                       can_restrict_members: typing.Optional[base.Boolean] = None,
                       can_pin_messages: typing.Optional[base.Boolean] = None,
-                      can_promote_members: typing.Optional[base.Boolean] = None) -> base.Boolean:
+                      can_promote_members: typing.Optional[base.Boolean] = None,
+                      can_manage_video_chats: typing.Optional[base.Boolean] = None,
+                      can_manage_topics: typing.Optional[base.Boolean] = None,) -> base.Boolean:
         """
         Use this method to promote or demote a user in a supergroup or a channel.
         The bot must be an administrator in the chat for this to work and must have the appropriate admin rights.
@@ -358,6 +368,7 @@ class Chat(base.TelegramObject):
         :return: Returns True on success.
         :rtype: :obj:`base.Boolean`
         """
+
         return await self.bot.promote_chat_member(self.id,
                                                   user_id=user_id,
                                                   is_anonymous=is_anonymous,
@@ -368,7 +379,12 @@ class Chat(base.TelegramObject):
                                                   can_invite_users=can_invite_users,
                                                   can_restrict_members=can_restrict_members,
                                                   can_pin_messages=can_pin_messages,
-                                                  can_promote_members=can_promote_members)
+                                                  can_promote_members=can_promote_members,
+                                                  can_manage_chat=can_manage_chat,
+                                                  can_manage_voice_chats=can_manage_voice_chats,
+                                                  can_manage_video_chats=can_manage_video_chats,
+                                                  can_manage_topics=can_manage_topics
+                                                  )
 
     async def set_permissions(self, permissions: ChatPermissions) -> base.Boolean:
         """
@@ -548,7 +564,7 @@ class Chat(base.TelegramObject):
         """
         return await self.bot.delete_chat_sticker_set(self.id)
 
-    async def do(self, action: base.String) -> base.Boolean:
+    async def do(self, action: base.String, message_thread_id: typing.Optional[base.Integer] = None) -> base.Boolean:
         """
         Use this method when you need to tell the user that something is happening on the bot's side.
         The status is set for 5 seconds or less
@@ -561,6 +577,8 @@ class Chat(base.TelegramObject):
 
         :param action: Type of action to broadcast.
         :type action: :obj:`base.String`
+        :param message_thread_id: Unique identifier for the target message thread; supergroups only
+        :type message_thread_id: :obj:`typing.Optional[base.Integer]`
         :return: Returns True on success.
         :rtype: :obj:`base.Boolean`
         """
@@ -585,12 +603,16 @@ class Chat(base.TelegramObject):
                                  expire_date: typing.Union[base.Integer, datetime.datetime,
                                                            datetime.timedelta, None] = None,
                                  member_limit: typing.Optional[base.Integer] = None,
+                                 name: typing.Optional[base.String] = None,
+                                 creates_join_request: typing.Optional[base.Boolean] = None,
                                  ) -> ChatInviteLink:
         """ Shortcut for createChatInviteLink method. """
         return await self.bot.create_chat_invite_link(
             chat_id=self.id,
             expire_date=expire_date,
             member_limit=member_limit,
+            name=name,
+            creates_join_request=creates_join_request,
         )
 
     async def edit_invite_link(self,
@@ -598,6 +620,8 @@ class Chat(base.TelegramObject):
                                expire_date: typing.Union[base.Integer, datetime.datetime,
                                                          datetime.timedelta, None] = None,
                                member_limit: typing.Optional[base.Integer] = None,
+                               name: typing.Optional[base.String] = None,
+                               creates_join_request: typing.Optional[base.Boolean] = None,
                                ) -> ChatInviteLink:
         """ Shortcut for editChatInviteLink method. """
         return await self.bot.edit_chat_invite_link(
@@ -605,6 +629,8 @@ class Chat(base.TelegramObject):
             invite_link=invite_link,
             expire_date=expire_date,
             member_limit=member_limit,
+            name=name,
+            creates_join_request=creates_join_request,
         )
 
     async def revoke_invite_link(self,

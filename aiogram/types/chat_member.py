@@ -129,11 +129,13 @@ class ChatMemberOwner(ChatMember):
     can_edit_messages: base.Boolean = fields.ConstField(True)
     can_delete_messages: base.Boolean = fields.ConstField(True)
     can_manage_voice_chats: base.Boolean = fields.ConstField(True)
+    can_manage_video_chats: base.Boolean = fields.ConstField(True)
     can_restrict_members: base.Boolean = fields.ConstField(True)
     can_promote_members: base.Boolean = fields.ConstField(True)
     can_change_info: base.Boolean = fields.ConstField(True)
     can_invite_users: base.Boolean = fields.ConstField(True)
     can_pin_messages: base.Boolean = fields.ConstField(True)
+    can_manage_topics: base.Boolean = fields.ConstField(True)
 
 
 class ChatMemberAdministrator(ChatMember):
@@ -158,6 +160,7 @@ class ChatMemberAdministrator(ChatMember):
     can_change_info: base.Boolean = fields.Field()
     can_invite_users: base.Boolean = fields.Field()
     can_pin_messages: base.Boolean = fields.Field()
+    can_manage_topics: base.Boolean = fields.Field()
 
 
 class ChatMemberMember(ChatMember):
@@ -184,8 +187,18 @@ class ChatMemberRestricted(ChatMember):
     can_change_info: base.Boolean = fields.Field()
     can_invite_users: base.Boolean = fields.Field()
     can_pin_messages: base.Boolean = fields.Field()
+    can_manage_topics: base.Boolean = fields.Field()
     can_send_messages: base.Boolean = fields.Field()
+    can_send_audios: base.Boolean = fields.Field()
+    can_send_documents: base.Boolean = fields.Field()
+    can_send_photos: base.Boolean = fields.Field()
+    can_send_videos: base.Boolean = fields.Field()
+    can_send_video_notes: base.Boolean = fields.Field()
+    can_send_voice_notes: base.Boolean = fields.Field()
+
+    # warning! field was replaced: https://core.telegram.org/bots/api#february-3-2023
     can_send_media_messages: base.Boolean = fields.Field()
+
     can_send_polls: base.Boolean = fields.Field()
     can_send_other_messages: base.Boolean = fields.Field()
     can_add_web_page_previews: base.Boolean = fields.Field()

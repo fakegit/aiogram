@@ -59,7 +59,9 @@ CHAT_MEMBER = {
     "can_restrict_members": True,
     "can_pin_messages": True,
     "can_promote_members": False,
-    "can_manage_voice_chats": True,
+    "can_manage_voice_chats": True,  # Deprecated
+    "can_manage_video_chats": True,
+    "can_manage_topics": True,
     "is_anonymous": False,
 }
 
@@ -110,7 +112,7 @@ ENTITY_LINK = {
     "offset": 10,
     "length": 6,
     "type": "text_link",
-    "url": "http://google.com/",
+    "url": "https://google.com/",
 }
 
 ENTITY_CODE = {

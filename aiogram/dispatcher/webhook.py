@@ -458,6 +458,18 @@ class ProtectContentMixin:
         setattr(self, "protect_content", True)
         return self
 
+    @staticmethod
+    def _global_protect_content():
+        """
+        Detect global protect content value
+
+        :return:
+        """
+        from aiogram import Bot
+        bot = Bot.get_current()
+        if bot is not None:
+            return bot.protect_content
+
 
 class ParseModeMixin:
     def as_html(self):
@@ -536,6 +548,8 @@ class SendMessage(BaseResponse, ReplyToMixin, ParseModeMixin,
             parse_mode = self._global_parse_mode()
         if disable_web_page_preview is None:
             disable_web_page_preview = self._global_disable_web_page_preview()
+        if protect_content is None:
+            protect_content = self._global_protect_content()
 
         self.chat_id = chat_id
         self.text = text
@@ -607,6 +621,9 @@ class ForwardMessage(BaseResponse, ReplyToMixin, DisableNotificationMixin, Prote
             from forwarding and saving
         :param message_id: Integer - Message identifier in the chat specified in from_chat_id
         """
+        if protect_content is None:
+            protect_content = self._global_protect_content()
+
         self.chat_id = chat_id
         self.from_chat_id = from_chat_id
         self.message_id = message_id
@@ -669,6 +686,9 @@ class SendPhoto(BaseResponse, ReplyToMixin, DisableNotificationMixin, ProtectCon
             - Additional interface options. A JSON-serialized object for an inline keyboard,
             custom reply keyboard, instructions to remove reply keyboard or to force a reply from the user.
         """
+        if protect_content is None:
+            protect_content = self._global_protect_content()
+
         self.chat_id = chat_id
         self.photo = photo
         self.caption = caption
@@ -731,6 +751,9 @@ class SendAudio(BaseResponse, ReplyToMixin, DisableNotificationMixin, ProtectCon
             - Additional interface options. A JSON-serialized object for an inline keyboard,
             custom reply keyboard, instructions to remove reply keyboard or to force a reply from the user.
         """
+        if protect_content is None:
+            protect_content = self._global_protect_content()
+
         self.chat_id = chat_id
         self.audio = audio
         self.caption = caption
@@ -793,6 +816,9 @@ class SendDocument(BaseResponse, ReplyToMixin, DisableNotificationMixin, Protect
             - Additional interface options. A JSON-serialized object for an inline keyboard,
             custom reply keyboard, instructions to remove reply keyboard or to force a reply from the user.
         """
+        if protect_content is None:
+            protect_content = self._global_protect_content()
+
         self.chat_id = chat_id
         self.document = document
         self.caption = caption
@@ -856,6 +882,9 @@ class SendVideo(BaseResponse, ReplyToMixin, DisableNotificationMixin, ProtectCon
             - Additional interface options. A JSON-serialized object for an inline keyboard,
             custom reply keyboard, instructions to remove reply keyboard or to force a reply from the user.
         """
+        if protect_content is None:
+            protect_content = self._global_protect_content()
+
         self.chat_id = chat_id
         self.video = video
         self.duration = duration
@@ -919,6 +948,9 @@ class SendVoice(BaseResponse, ReplyToMixin, DisableNotificationMixin, ProtectCon
             - Additional interface options. A JSON-serialized object for an inline keyboard, custom reply keyboard,
             instructions to remove reply keyboard or to force a reply from the user.
         """
+        if protect_content is None:
+            protect_content = self._global_protect_content()
+
         self.chat_id = chat_id
         self.voice = voice
         self.caption = caption
@@ -977,6 +1009,9 @@ class SendVideoNote(BaseResponse, ReplyToMixin, DisableNotificationMixin, Protec
             - Additional interface options. A JSON-serialized object for an inline keyboard,
             custom reply keyboard, instructions to remove reply keyboard or to force a reply from the user.
         """
+        if protect_content is None:
+            protect_content = self._global_protect_content()
+
         self.chat_id = chat_id
         self.video_note = video_note
         self.duration = duration
@@ -1037,6 +1072,8 @@ class SendMediaGroup(BaseResponse, ReplyToMixin, DisableNotificationMixin, Prote
         elif isinstance(media, list):
             # Convert list to MediaGroup
             media = types.MediaGroup(media)
+        if protect_content is None:
+            protect_content = self._global_protect_content()
 
         self.chat_id = chat_id
         self.media = media
@@ -1117,6 +1154,9 @@ class SendLocation(BaseResponse, ReplyToMixin, DisableNotificationMixin, Protect
             - Additional interface options. A JSON-serialized object for an inline keyboard,
             custom reply keyboard, instructions to remove reply keyboard or to force a reply from the user.
         """
+        if protect_content is None:
+            protect_content = self._global_protect_content()
+
         self.chat_id = chat_id
         self.latitude = latitude
         self.longitude = longitude
@@ -1177,6 +1217,9 @@ class SendVenue(BaseResponse, ReplyToMixin, DisableNotificationMixin, ProtectCon
             - Additional interface options. A JSON-serialized object for an inline keyboard,
             custom reply keyboard, instructions to remove reply keyboard or to force a reply from the user.
         """
+        if protect_content is None:
+            protect_content = self._global_protect_content()
+
         self.chat_id = chat_id
         self.latitude = latitude
         self.longitude = longitude
@@ -1237,6 +1280,9 @@ class SendContact(BaseResponse, ReplyToMixin, DisableNotificationMixin, ProtectC
             - Additional interface options. A JSON-serialized object for an inline keyboard,
             custom reply keyboard, instructions to remove keyboard or to force a reply from the user.
         """
+        if protect_content is None:
+            protect_content = self._global_protect_content()
+
         self.chat_id = chat_id
         self.phone_number = phone_number
         self.first_name = first_name
@@ -1404,7 +1450,7 @@ class PromoteChatMember(BaseResponse):
 
     __slots__ = ('chat_id', 'user_id', 'can_change_info', 'can_post_messages', 'can_edit_messages',
                  'can_delete_messages', 'can_invite_users', 'can_restrict_members', 'can_pin_messages',
-                 'can_promote_members')
+                 'can_manage_topics', 'can_promote_members')
 
     method = api.Methods.PROMOTE_CHAT_MEMBER
 
@@ -1417,6 +1463,7 @@ class PromoteChatMember(BaseResponse):
                  can_invite_users: Optional[Boolean] = None,
                  can_restrict_members: Optional[Boolean] = None,
                  can_pin_messages: Optional[Boolean] = None,
+                 can_manage_topics: Optional[Boolean] = None,
                  can_promote_members: Optional[Boolean] = None):
         """
         :param chat_id: Union[Integer, String] - Unique identifier for the target chat
@@ -1431,6 +1478,8 @@ class PromoteChatMember(BaseResponse):
         :param can_invite_users: Boolean - Pass True, if the administrator can invite new users to the chat
         :param can_restrict_members: Boolean - Pass True, if the administrator can restrict, ban or unban chat members
         :param can_pin_messages: Boolean - Pass True, if the administrator can pin messages, supergroups only
+        :param can_manage_topics: Boolean - Pass True if the user is allowed to create, rename, close, and reopen forum
+            topics, supergroups only
         :param can_promote_members: Boolean - Pass True, if the administrator can add new administrators
             with a subset of his own privileges or demote administrators that he has promoted,
             directly or indirectly (promoted by administrators that were appointed by him)
@@ -1444,6 +1493,7 @@ class PromoteChatMember(BaseResponse):
         self.can_invite_users = can_invite_users
         self.can_restrict_members = can_restrict_members
         self.can_pin_messages = can_pin_messages
+        self.can_manage_topics = can_manage_topics
         self.can_promote_members = can_promote_members
 
     def prepare(self):
@@ -1457,6 +1507,7 @@ class PromoteChatMember(BaseResponse):
             'can_invite_users': self.can_invite_users,
             'can_restrict_members': self.can_restrict_members,
             'can_pin_messages': self.can_pin_messages,
+            'can_manage_topics': self.can_manage_topics,
             'can_promote_members': self.can_promote_members
         }
 
@@ -1845,6 +1896,9 @@ class SendSticker(BaseResponse, ReplyToMixin, DisableNotificationMixin, ProtectC
             Additional interface options. A JSON-serialized object for an inline keyboard,
             custom reply keyboard, instructions to remove reply keyboard or to force a reply from the user.
         """
+        if protect_content is None:
+            protect_content = self._global_protect_content()
+
         self.chat_id = chat_id
         self.sticker = sticker
         self.disable_notification = disable_notification
@@ -2288,6 +2342,9 @@ class SendGame(BaseResponse, ReplyToMixin, DisableNotificationMixin, ProtectCont
         :param reply_markup: types.InlineKeyboardMarkup (Optional) - A JSON-serialized object for an inline keyboard.
             If empty, one ‘Play game_title’ button will be shown. If not empty, the first button must launch the game.
         """
+        if protect_content is None:
+            protect_content = self._global_protect_content()
+
         self.chat_id = chat_id
         self.game_short_name = game_short_name
         self.disable_notification = disable_notification

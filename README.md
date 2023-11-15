@@ -1,4 +1,4 @@
-# AIOGram
+# aiogram
 
 [![Financial Contributors on Open Collective](https://opencollective.com/aiogram/all/badge.svg?style=flat-square)](https://opencollective.com/aiogram) 
 [![\[Telegram\] aiogram live](https://img.shields.io/badge/telegram-aiogram-blue.svg?style=flat-square)](https://t.me/aiogram_live)
@@ -6,7 +6,7 @@
 [![PyPi status](https://img.shields.io/pypi/status/aiogram.svg?style=flat-square)](https://pypi.python.org/pypi/aiogram)
 [![Downloads](https://img.shields.io/pypi/dm/aiogram.svg?style=flat-square)](https://pypi.python.org/pypi/aiogram)
 [![Supported python versions](https://img.shields.io/pypi/pyversions/aiogram.svg?style=flat-square)](https://pypi.python.org/pypi/aiogram)
-[![Telegram Bot API](https://img.shields.io/badge/Telegram%20Bot%20API-6.0-blue.svg?style=flat-square&logo=telegram)](https://core.telegram.org/bots/api)
+[![Telegram Bot API](https://img.shields.io/badge/Telegram%20Bot%20API-6.4-blue.svg?style=flat-square&logo=telegram)](https://core.telegram.org/bots/api)
 [![Documentation Status](https://img.shields.io/readthedocs/aiogram?style=flat-square)](http://docs.aiogram.dev/en/latest/?badge=latest)
 [![Github issues](https://img.shields.io/github/issues/aiogram/aiogram.svg?style=flat-square)](https://github.com/aiogram/aiogram/issues)
 [![MIT License](https://img.shields.io/pypi/l/aiogram.svg?style=flat-square)](https://opensource.org/licenses/MIT)
@@ -21,7 +21,7 @@
 
 **Few steps before getting started...**
 - First, you should obtain token for your bot from [BotFather](https://t.me/BotFather).
-- Install latest stable version of aiogram, simply running `pip install aiogram`
+- Install the latest stable version of aiogram, simply running `pip install aiogram`
 
 ### Simple [`getMe`](https://core.telegram.org/bots/api#getme) request
 
@@ -78,8 +78,15 @@ You can find more examples in [`examples/`](https://github.com/aiogram/aiogram/t
 
 ## Official aiogram resources:
  - News: [@aiogram_live](https://t.me/aiogram_live)
- - Community: [@aiogram](https://t.me/aiogram)
- - Russian community: [@aiogram_ru](https://t.me/aiogram_ru)
+ - Communities:
+   - 🇺🇸 [@aiogram](https://t.me/aiogram)
+   - 🇺🇦 [@aiogramua](https://t.me/aiogramua)
+   - 🇺🇿 [@aiogram_uz](https://t.me/aiogram_uz)
+   - 🇰🇿 [@aiogram_kz](https://t.me/aiogram_kz)
+   - 🇷🇺 [@aiogram_ru](https://t.me/aiogram_ru)
+   - 🇮🇷 [@aiogram_fa](https://t.me/aiogram_fa)
+   - 🇮🇹 [@aiogram_it](https://t.me/aiogram_it)
+   - 🇧🇷 [@aiogram_br](https://t.me/aiogram_br)
  - PyPI: [aiogram](https://pypi.python.org/pypi/aiogram)
  - Documentation: [aiogram site](https://docs.aiogram.dev/en/latest/)
  - Source: [Github repo](https://github.com/aiogram/aiogram)

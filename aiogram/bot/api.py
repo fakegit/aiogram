@@ -252,6 +252,18 @@ class Methods(Helper):
     GET_CHAT_MEMBER = Item()  # getChatMember
     SET_CHAT_STICKER_SET = Item()  # setChatStickerSet
     DELETE_CHAT_STICKER_SET = Item()  # deleteChatStickerSet
+    GET_FORUM_TOPIC_ICON_STICKERS = Item()  # getForumTopicIconStickers
+    CREATE_FORUM_TOPIC = Item()  # createForumTopic
+    EDIT_FORUM_TOPIC = Item()  # editForumTopic
+    CLOSE_FORUM_TOPIC = Item()  # closeForumTopic
+    REOPEN_FORUM_TOPIC = Item()  # reopenForumTopic
+    DELETE_FORUM_TOPIC = Item()  # deleteForumTopic
+    UNPIN_ALL_FORUM_TOPIC_MESSAGES = Item()  # unpinAllForumTopicMessages
+    EDIT_GENERAL_FORUM_TOPIC = Item()  # editGeneralForumTopic
+    CLOSE_GENERAL_FORUM_TOPIC = Item()  # closeGeneralForumTopic
+    REOPEN_GENERAL_FORUM_TOPIC = Item()  # reopenGeneralForumTopic
+    HIDE_GENERAL_FORUM_TOPIC = Item()  # hideGeneralForumTopic
+    UNHIDE_GENERAL_FORUM_TOPIC = Item()  # unhideGeneralForumTopic
     ANSWER_CALLBACK_QUERY = Item()  # answerCallbackQuery
     SET_MY_COMMANDS = Item()  # setMyCommands
     DELETE_MY_COMMANDS = Item()  # deleteMyCommands
@@ -269,6 +281,7 @@ class Methods(Helper):
     SEND_STICKER = Item()  # sendSticker
     GET_STICKER_SET = Item()  # getStickerSet
     UPLOAD_STICKER_FILE = Item()  # uploadStickerFile
+    GET_CUSTOM_EMOJI_STICKERS = Item()  # getCustomEmojiStickers
     CREATE_NEW_STICKER_SET = Item()  # createNewStickerSet
     ADD_STICKER_TO_SET = Item()  # addStickerToSet
     SET_STICKER_POSITION_IN_SET = Item()  # setStickerPositionInSet

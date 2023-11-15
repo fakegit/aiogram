@@ -1,4 +1,5 @@
 import asyncio
+import pytest_asyncio
 
 import aioredis
 import pytest
@@ -19,6 +20,7 @@ def pytest_addoption(parser):
         default=None,
         help="run tests which require redis connection",
     )
+    parser.addini("asyncio_mode", "", default='auto')
 
 
 def pytest_configure(config):
@@ -57,7 +59,7 @@ def pytest_collection_modifyitems(config, items):
         raise UsageError(f"Invalid redis URI {redis_uri!r}: {e}")
 
 
-@pytest.fixture(scope='session')
+@pytest_asyncio.fixture(scope='session')
 def redis_options(request):
     redis_uri = request.config.getoption("--redis")
     if redis_uri is None:
@@ -79,7 +81,7 @@ def redis_options(request):
     raise UsageError("Unsupported aioredis version")
 
 
-@pytest.fixture(name='bot')
+@pytest_asyncio.fixture(name='bot')
 async def bot_fixture():
     """Bot fixture."""
     bot = Bot(TOKEN)
