@@ -1,5 +1,4 @@
 from contextlib import contextmanager
-from typing import Type
 
 import pytest
 from packaging import version
@@ -9,7 +8,9 @@ import aiogram
 
 @contextmanager
 def check_deprecated(
-    max_version: str, exception: Type[Exception], warning: Type[Warning] = DeprecationWarning,
+    max_version: str,
+    exception: type[Exception],
+    warning: type[Warning] = DeprecationWarning,
 ) -> None:
     """
     Should be used for modules that are being deprecated or already removed from aiogram

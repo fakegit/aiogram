@@ -7,47 +7,263 @@ on:
   pull_request:
     branches:
       - dev-3.x
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+env:
+  # the environment is synced explicitly in each job; do not let `uv run` re-sync it
+  UV_NO_SYNC: "1"
+
+defaults:
+  run:
+    # Windows defaults to PowerShell; every script below is bash
+    shell: bash
 
 jobs:
-  build:
+  lint:
+    name: Lint
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+
+      - uses: astral-sh/setup-uv@v10.3.2
+        with:
+          # lowest supported interpreter: mypy must pass against the oldest target
+          python-version: "3.11"
+
+      - name: Install project
+        # `dev` is a default group (ruff, mypy, pre-commit); `test` is not needed for lint;
+        # `docs` is heavy and covered by the Docs job
+        run: uv sync --locked --all-extras --no-extra docs
+
+      - name: Lint
+        env:
+          RUFF_OUTPUT_FORMAT: github   # inline annotations; the Makefile stays terminal-friendly
+          SKIP: ruff-check,ruff-format # pre-commit's ruff hooks duplicate the ruff steps of make lint
+        run: make lint
+
+  tests:
+    name: Tests
     runs-on: ${{ matrix.os }}
+    timeout-minutes: 15
     strategy:
-      max-parallel: 6
+      fail-fast: false
       matrix:
         os:
           - ubuntu-latest
           - macos-latest
           - windows-latest
         python-version:
-          - 3.7
-          - 3.8
-
+          - "3.11"
+          - "3.12"
+          - "3.13"
+          - "3.14"
+          - "3.15"
+          - "pypy3.11"
+        exclude:
+          # PyPy on Windows was disabled in the old workflow as well
+          - os: windows-latest
+            python-version: pypy3.11
+    env:
+      IS_PYPY: ${{ startsWith(matrix.python-version, 'pypy') }}
     steps:
-      - uses: actions/checkout@master
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
 
-      - name: Set up Python ${{ matrix.python-version }} on ${{ matrix.os }}
-        uses: actions/setup-python@v1
+      - uses: astral-sh/setup-uv@v10.3.2
         with:
           python-version: ${{ matrix.python-version }}
 
-      - name: Install dependencies
+      # Redis and MongoDB only on Linux: the servers are black boxes behind a socket,
+      # the OS-specific code under test is aiogram itself, which macOS / Windows still run.
+      - name: Start Redis
+        if: runner.os == 'Linux'
+        # the compose file is the single source for the image tag; MongoDB deliberately
+        # stays on apt (see the step below)
         run: |
-          python -m pip install --upgrade pip poetry==1.0
-          poetry install
+          docker compose -f tests/docker-compose.yml up -d redis
+          for _ in $(seq 1 15); do
+            docker compose -f tests/docker-compose.yml exec -T redis redis-cli ping >/dev/null 2>&1 && exit 0
+            sleep 1
+          done
+          echo "Redis did not become ready" >&2
+          docker compose -f tests/docker-compose.yml logs redis
+          exit 1
 
-      - name: Lint code
+      - name: Start MongoDB
+        if: runner.os == 'Linux'
         run: |
-          poetry run flake8 aiogram
-          poetry run mypy aiogram
+          curl -fsSL https://www.mongodb.org/static/pgp/server-8.0.asc \
+            | sudo gpg --dearmor -o /usr/share/keyrings/mongodb-server-8.0.gpg
+          # `noble` on purpose, not $(lsb_release -cs): MongoDB publishes per-codename repos with a lag,
+          # and the noble packages install fine on newer Ubuntu releases.
+          echo "deb [signed-by=/usr/share/keyrings/mongodb-server-8.0.gpg] https://repo.mongodb.org/apt/ubuntu noble/mongodb-org/8.0 multiverse" \
+            | sudo tee /etc/apt/sources.list.d/mongodb-org-8.0.list >/dev/null
+          # refresh only the MongoDB source, not every repo on the runner image
+          sudo apt-get update -qq \
+            -o Dir::Etc::sourcelist=sources.list.d/mongodb-org-8.0.list \
+            -o Dir::Etc::sourceparts=- \
+            -o APT::Get::List-Cleanup=0
+          sudo apt-get install -y -qq --no-install-recommends mongodb-org-server
+          mkdir -p /tmp/mongo-data
+          # --fork returns only once mongod accepts connections
+          mongod --fork --dbpath /tmp/mongo-data --logpath /tmp/mongod.log --bind_ip 127.0.0.1 || { cat /tmp/mongod.log; exit 1; }
+
+      - name: Install project
+        # no `dev` group: linting lives in its own job, and `packaging` (tests/deprecated.py)
+        # comes in transitively via pytest; `docs` is heavy and covered by the Docs job
+        run: uv sync --locked --all-extras --no-extra docs --no-group dev --group test
 
       - name: Run tests
+        id: tests
         run: |
-          poetry run pytest --cov=aiogram --cov-config .coveragerc --cov-report=xml
+          flags=()
+          if [[ "$IS_PYPY" == "false" ]]; then
+            flags+=(--cov=aiogram --cov-report=xml)
+          fi
+          if [[ "$RUNNER_OS" == "Linux" ]]; then
+            flags+=(--redis redis://localhost:6379/0 --mongo mongodb://localhost:27017)
+          fi
+          uv run pytest "${flags[@]}"
 
-      - uses: codecov/codecov-action@v1
+      - name: Upload coverage
+        # upload when pytest actually ran, even if it failed: coverage.xml is still written and
+        # codecov.yaml waits for all 15 uploads before commenting. A leg whose setup failed
+        # never reached pytest, has no report, and must not add a second error.
+        if: ${{ !cancelled() && env.IS_PYPY == 'false' && steps.tests.outcome != 'skipped' }}
+        uses: codecov/codecov-action@v7
         with:
           token: ${{ secrets.CODECOV_TOKEN }}
-          file: coverage.xml
+          files: coverage.xml
           flags: unittests
           name: py-${{ matrix.python-version }}-${{ matrix.os }}
           fail_ci_if_error: true
+
+  lowest-deps:
+    name: Tests (lowest direct deps)
+    # Other jobs use uv.lock, so pyproject lower bounds go untested.
+    # Resolves direct deps to their minimum (transitive stay newest).
+    # Linux + oldest Python only: old releases lack new CPython wheels.
+    # Runs mypy too: the pydantic floor comes from mypy, not runtime.
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+
+      - uses: astral-sh/setup-uv@v10.3.2
+        with:
+          python-version: "3.11"
+
+      # same services as Tests: the redis/mongo extras have floors too
+      - name: Start Redis
+        run: |
+          docker compose -f tests/docker-compose.yml up -d redis
+          for _ in $(seq 1 15); do
+            docker compose -f tests/docker-compose.yml exec -T redis redis-cli ping >/dev/null 2>&1 && exit 0
+            sleep 1
+          done
+          echo "Redis did not become ready" >&2
+          docker compose -f tests/docker-compose.yml logs redis
+          exit 1
+
+      - name: Start MongoDB
+        run: |
+          curl -fsSL https://www.mongodb.org/static/pgp/server-8.0.asc \
+            | sudo gpg --dearmor -o /usr/share/keyrings/mongodb-server-8.0.gpg
+          # `noble` on purpose, see the Tests job
+          echo "deb [signed-by=/usr/share/keyrings/mongodb-server-8.0.gpg] https://repo.mongodb.org/apt/ubuntu noble/mongodb-org/8.0 multiverse" \
+            | sudo tee /etc/apt/sources.list.d/mongodb-org-8.0.list >/dev/null
+          sudo apt-get update -qq \
+            -o Dir::Etc::sourcelist=sources.list.d/mongodb-org-8.0.list \
+            -o Dir::Etc::sourceparts=- \
+            -o APT::Get::List-Cleanup=0
+          sudo apt-get install -y -qq --no-install-recommends mongodb-org-server
+          mkdir -p /tmp/mongo-data
+          mongod --fork --dbpath /tmp/mongo-data --logpath /tmp/mongod.log --bind_ip 127.0.0.1 || { cat /tmp/mongod.log; exit 1; }
+
+      - name: Install project with the lowest direct dependencies
+        # Not `--locked`: it forbids the re-resolution needed.
+        # uv.lock is rewritten in this throwaway checkout only.
+        run: uv sync --resolution lowest-direct --all-extras --no-extra docs --group dev --group test
+
+      - name: Type-check
+        # mypy only: ruff at its floor reports unrelated style noise.
+        # `--no-sync` here and below: redundant with UV_NO_SYNC.
+        run: uv run --no-sync mypy --native-parser --num-workers 8 aiogram
+
+      - name: Run tests
+        # no coverage: the Tests job uploads it
+        run: uv run --no-sync pytest --redis redis://localhost:6379/0 --mongo mongodb://localhost:27017
+
+  build:
+    name: Build package
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+
+      - uses: astral-sh/setup-uv@v10.3.2
+        with:
+          python-version: "3.14"
+
+      - name: Build sdist and wheel
+        run: uv build
+
+      - name: Check metadata
+        # pinned: an unpinned linter on the release path can block a release on an upstream
+        # change. The same pin lives in pypi-release.yml.
+        run: uvx --from 'twine==7.0.0' twine check --strict dist/*
+
+      - name: Smoke-test wheel and sdist
+        run: |
+          # a venv inside the checkout would be swept into the next sdist (hatchling packs it,
+          # and its absolute symlinks break the build), so build it under the runner temp dir
+          venv="${RUNNER_TEMP}/smoke"
+          for dist in dist/*.whl dist/*.tar.gz; do
+            uv venv --clear "$venv"
+            uv pip install --python "$venv/bin/python" "$dist"
+            # -P keeps the checkout's own aiogram/ off sys.path, so this imports what was just installed
+            "$venv/bin/python" -P -c "import aiogram; print(aiogram.__version__)"
+          done
+
+  docs:
+    name: Docs
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+
+      - uses: astral-sh/setup-uv@v10.3.2
+        with:
+          # Sphinx 8.0.x predates Python 3.13 / 3.14; 3.12 is the newest it was released against
+          python-version: "3.12"
+
+      - name: Install project with docs extras
+        # mirrors .readthedocs.yml: docs + the extras autodoc needs to import
+        run: uv sync --locked --extra docs --extra redis --extra mongo --no-group dev
+
+      - name: Build HTML
+        # TODO: add -W once the existing Sphinx warnings are fixed (#1909)
+        # sphinx.ext.viewcode renders a highlighted copy of every module and is ~80% of the build;
+        # the CI check does not need it (Read the Docs keeps it). The extension list is derived
+        # from conf.py so it cannot drift.
+        working-directory: docs
+        run: |
+          extensions="$(uv run python -c 'import conf; print(",".join(e for e in conf.extensions if e != "sphinx.ext.viewcode"))')"
+          uv run make html SPHINXOPTS="-q -j auto -D extensions=${extensions}"

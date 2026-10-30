@@ -1,62 +1,40 @@
-from typing import Dict, Optional
+from unittest.mock import sentinel
 
 import pytest
 
-from aiogram import Bot
-from aiogram.api.methods.base import prepare_parse_mode
+from aiogram.methods import GetMe, TelegramMethod
+from aiogram.types import TelegramObject, User
+from tests.mocked_bot import MockedBot
 
 
-class TestPrepareFile:
-    # TODO: Add tests
-    pass
-
-
-class TestPrepareInputMedia:
-    # TODO: Add tests
-    pass
-
-
-class TestPrepareMediaFile:
-    # TODO: Add tests
-    pass
-
-
-class TestPrepareParseMode:
+class TestTelegramMethodRemoveUnset:
     @pytest.mark.parametrize(
-        "parse_mode,data,result",
+        "values,names",
         [
-            [None, {}, None],
-            ["HTML", {}, "HTML"],
-            ["Markdown", {}, "Markdown"],
-            [None, {"parse_mode": "HTML"}, "HTML"],
-            ["HTML", {"parse_mode": "HTML"}, "HTML"],
-            ["Markdown", {"parse_mode": "HTML"}, "HTML"],
+            [{}, set()],
+            [{"foo": "bar"}, {"foo"}],
+            [{"foo": "bar", "baz": sentinel.DEFAULT}, {"foo"}],
         ],
     )
-    @pytest.mark.asyncio
-    async def test_default_parse_mode(
-        self, parse_mode: str, data: Dict[str, str], result: Optional[str]
-    ):
-        async with Bot(token="42:TEST", parse_mode=parse_mode).context() as bot:
-            assert bot.parse_mode == parse_mode
-            prepare_parse_mode(data)
-            assert data.get("parse_mode") == result
+    @pytest.mark.parametrize("obj", [TelegramMethod, TelegramObject])
+    def test_remove_unset(self, values, names, obj):
+        validated = obj.remove_unset(values)
+        assert set(validated.keys()) == names
 
-    @pytest.mark.asyncio
-    async def test_list(self):
-        data = [{}] * 2
-        data.append({"parse_mode": "HTML"})
-        async with Bot(token="42:TEST", parse_mode="Markdown").context():
-            prepare_parse_mode(data)
+    @pytest.mark.parametrize("obj", [TelegramMethod, TelegramObject])
+    def test_remove_unset_non_dict(self, obj):
+        assert obj.remove_unset("") == ""
 
-        assert isinstance(data, list)
-        assert len(data) == 3
-        assert all("parse_mode" in item for item in data)
-        assert data[0]["parse_mode"] == "Markdown"
-        assert data[1]["parse_mode"] == "Markdown"
-        assert data[2]["parse_mode"] == "HTML"
 
-    def test_bot_not_in_context(self):
-        data = {}
-        prepare_parse_mode(data)
-        assert "parse_mode" not in data
+class TestTelegramMethodCall:
+    async def test_async_emit_unsuccessful(self, bot: MockedBot):
+        with pytest.raises(
+            RuntimeError,
+            match="This method is not mounted to a any bot instance.+",
+        ):
+            await GetMe()
+
+    async def test_async_emit(self, bot: MockedBot):
+        bot.add_result_for(GetMe, ok=True, result=User(id=42, is_bot=True, first_name="Test"))
+        method = GetMe().as_(bot)
+        assert isinstance(await method, User)

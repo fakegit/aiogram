@@ -1,5 +1,5 @@
-from aiogram.api.methods import AnswerPreCheckoutQuery
-from aiogram.api.types import PreCheckoutQuery, User
+from aiogram.methods import AnswerPreCheckoutQuery
+from aiogram.types import PreCheckoutQuery, User
 
 
 class TestPreCheckoutQuery:
@@ -12,7 +12,7 @@ class TestPreCheckoutQuery:
             invoice_payload="payload",
         )
 
-        kwargs = dict(ok=True, error_message="foo")
+        kwargs = {"ok": True, "error_message": "foo"}
 
         api_method = pre_checkout_query.answer(**kwargs)
 

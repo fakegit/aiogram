@@ -1,19 +1,34 @@
 from __future__ import annotations
 
-from typing import Any, Callable, List
+from collections.abc import Callable
+from typing import Any
 
-from .handler import CallbackType, HandlerObject, HandlerType
+from .handler import CallbackType, HandlerObject
 
 
 class EventObserver:
     """
     Simple events observer
+
+    Is used for managing events is not related with Telegram
+    (For example startup/shutdown processes)
+
+    Handlers can be registered via decorator or method
+
+    .. code-block:: python
+
+        <observer>.register(my_handler)
+
+    .. code-block:: python
+
+        @<observer>()
+        async def my_handler(*args, **kwargs): ...
     """
 
     def __init__(self) -> None:
-        self.handlers: List[HandlerObject] = []
+        self.handlers: list[HandlerObject] = []
 
-    def register(self, callback: HandlerType) -> None:
+    def register(self, callback: CallbackType) -> None:
         """
         Register callback with filters
         """

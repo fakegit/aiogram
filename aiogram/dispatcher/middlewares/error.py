@@ -1,31 +1,38 @@
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Any, Awaitable, Callable, Dict
+from collections.abc import Awaitable, Callable
+from typing import TYPE_CHECKING, Any, cast
 
-from ...api.types import Update
-from ..event.bases import NOT_HANDLED, CancelHandler, SkipHandler
+from aiogram.dispatcher.event.bases import UNHANDLED, CancelHandler, SkipHandler
+from aiogram.types import TelegramObject, Update
+from aiogram.types.error_event import ErrorEvent
+
 from .base import BaseMiddleware
 
-if TYPE_CHECKING:  # pragma: no cover
-    from ..router import Router
+if TYPE_CHECKING:
+    from aiogram.dispatcher.router import Router
 
 
-class ErrorsMiddleware(BaseMiddleware[Update]):
+class ErrorsMiddleware(BaseMiddleware):
     def __init__(self, router: Router):
         self.router = router
 
     async def __call__(
         self,
-        handler: Callable[[Any, Dict[str, Any]], Awaitable[Any]],
-        event: Any,
-        data: Dict[str, Any],
+        handler: Callable[[TelegramObject, dict[str, Any]], Awaitable[Any]],
+        event: TelegramObject,
+        data: dict[str, Any],
     ) -> Any:
         try:
             return await handler(event, data)
         except (SkipHandler, CancelHandler):  # pragma: no cover
             raise
         except Exception as e:
-            response = await self.router.errors.trigger(event, exception=e, **data)
-            if response is NOT_HANDLED:
-                raise
-            return response
+            response = await self.router.propagate_event(
+                update_type="error",
+                event=ErrorEvent(update=cast(Update, event), exception=e),
+                **data,
+            )
+            if response is not UNHANDLED:
+                return response
+            raise

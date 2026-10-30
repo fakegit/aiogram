@@ -1,70 +1,122 @@
 import asyncio
-import contextvars
 import inspect
+import sys
+import warnings
+from collections.abc import Callable
 from dataclasses import dataclass, field
 from functools import partial
-from typing import Any, Awaitable, Callable, Dict, List, Optional, Tuple, Type, Union
+from typing import Any
 
-from aiogram.dispatcher.filters.base import BaseFilter
-from aiogram.dispatcher.handler.base import BaseHandler
+from magic_filter.magic import MagicFilter as OriginalMagicFilter
 
-CallbackType = Callable[..., Awaitable[Any]]
-SyncFilter = Callable[..., Any]
-AsyncFilter = Callable[..., Awaitable[Any]]
-FilterType = Union[SyncFilter, AsyncFilter, BaseFilter]
-HandlerType = Union[FilterType, Type[BaseHandler]]
+from aiogram.dispatcher.flags import extract_flags_from_object
+from aiogram.filters.base import Filter
+from aiogram.handlers import BaseHandler
+from aiogram.utils.magic_filter import MagicFilter
+from aiogram.utils.warnings import Recommendation
+
+CallbackType = Callable[..., Any]
+
+_ACCEPTED_PARAM_KINDS = {
+    inspect.Parameter.POSITIONAL_ONLY,
+    inspect.Parameter.POSITIONAL_OR_KEYWORD,
+    inspect.Parameter.KEYWORD_ONLY,
+}
 
 
 @dataclass
-class CallableMixin:
-    callback: HandlerType
+class CallableObject:
+    callback: CallbackType
     awaitable: bool = field(init=False)
-    spec: inspect.FullArgSpec = field(init=False)
+    params: set[str] = field(init=False)
+    varkw: bool = field(init=False)
 
     def __post_init__(self) -> None:
         callback = inspect.unwrap(self.callback)
-        self.awaitable = inspect.isawaitable(callback) or inspect.iscoroutinefunction(callback)
-        if isinstance(callback, BaseFilter):
-            # Pydantic 1.5 has incorrect signature generator
-            # Issue: https://github.com/samuelcolvin/pydantic/issues/1419
-            # Fixes: https://github.com/samuelcolvin/pydantic/pull/1427
-            # TODO: Remove this temporary fix
-            callback = inspect.unwrap(callback.__call__)
-        self.spec = inspect.getfullargspec(callback)
+        self.awaitable = (
+            inspect.isawaitable(callback)
+            or inspect.iscoroutinefunction(callback)
+            # A callable object is async when its `__call__` is a coroutine function
+            or (callable(callback) and inspect.iscoroutinefunction(type(callback).__call__))
+        )
 
-    def _prepare_kwargs(self, kwargs: Dict[str, Any]) -> Dict[str, Any]:
-        if self.spec.varkw:
+        kwargs: dict[str, Any] = {}
+        if sys.version_info >= (3, 14):
+            import annotationlib
+
+            kwargs["annotation_format"] = annotationlib.Format.FORWARDREF
+
+        try:
+            signature = inspect.signature(callback, **kwargs)
+        except (ValueError, TypeError):  # pragma: no cover
+            self.params = set()
+            self.varkw = False
+            return
+
+        params: set[str] = set()
+        varkw: bool = False
+
+        for p in signature.parameters.values():
+            if p.kind in _ACCEPTED_PARAM_KINDS:
+                params.add(p.name)
+            elif p.kind == inspect.Parameter.VAR_KEYWORD:
+                varkw = True
+        self.params = params
+        self.varkw = varkw
+
+    def _prepare_kwargs(self, kwargs: dict[str, Any]) -> dict[str, Any]:
+        if self.varkw:
             return kwargs
 
-        return {k: v for k, v in kwargs.items() if k in self.spec.args}
+        return {k: kwargs[k] for k in self.params if k in kwargs}
 
     async def call(self, *args: Any, **kwargs: Any) -> Any:
         wrapped = partial(self.callback, *args, **self._prepare_kwargs(kwargs))
         if self.awaitable:
             return await wrapped()
-
-        loop = asyncio.get_event_loop()
-        context = contextvars.copy_context()
-        wrapped = partial(context.run, wrapped)
-        return await loop.run_in_executor(None, wrapped)
+        return await asyncio.to_thread(wrapped)
 
 
 @dataclass
-class FilterObject(CallableMixin):
-    callback: FilterType
-
-
-@dataclass
-class HandlerObject(CallableMixin):
-    callback: HandlerType
-    filters: Optional[List[FilterObject]] = None
+class FilterObject(CallableObject):
+    magic: OriginalMagicFilter | None = None
 
     def __post_init__(self) -> None:
-        super(HandlerObject, self).__post_init__()
-        if inspect.isclass(self.callback) and issubclass(self.callback, BaseHandler):  # type: ignore
+        if isinstance(self.callback, OriginalMagicFilter):
+            # MagicFilter instance is callable but generates
+            # only "CallOperation" instead of applying the filter
+            self.magic = self.callback
+            self.callback = self.callback.resolve
+            if not isinstance(self.magic, MagicFilter):
+                # Issue: https://github.com/aiogram/aiogram/issues/990
+                warnings.warn(
+                    category=Recommendation,
+                    message="You are using F provided by magic_filter package directly, "
+                    "but it lacks `.as_()` extension."
+                    "\n Please change the import statement: from `from magic_filter import F` "
+                    "to `from aiogram import F` to silence this warning.",
+                    stacklevel=6,
+                )
+
+        super().__post_init__()
+
+        if isinstance(self.callback, Filter):
             self.awaitable = True
 
-    async def check(self, *args: Any, **kwargs: Any) -> Tuple[bool, Dict[str, Any]]:
+
+@dataclass
+class HandlerObject(CallableObject):
+    filters: list[FilterObject] | None = None
+    flags: dict[str, Any] = field(default_factory=dict)
+
+    def __post_init__(self) -> None:
+        super().__post_init__()
+        callback = inspect.unwrap(self.callback)
+        if inspect.isclass(callback) and issubclass(callback, BaseHandler):
+            self.awaitable = True
+        self.flags.update(extract_flags_from_object(callback))
+
+    async def check(self, *args: Any, **kwargs: Any) -> tuple[bool, dict[str, Any]]:
         if not self.filters:
             return True, kwargs
         for event_filter in self.filters:

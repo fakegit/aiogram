@@ -1,32 +1,32 @@
-from .api import methods, types
-from .api.client import session
-from .api.client.bot import Bot
-from .dispatcher import filters, handler
+from aiogram.dispatcher.flags import FlagGenerator
+
+from . import enums, methods, types
+from .__meta__ import __api_version__, __version__
+from .client import session
+from .client.bot import Bot
 from .dispatcher.dispatcher import Dispatcher
 from .dispatcher.middlewares.base import BaseMiddleware
 from .dispatcher.router import Router
+from .utils.magic_filter import MagicFilter
+from .utils.text_decorations import html_decoration as html
+from .utils.text_decorations import markdown_decoration as md
 
-try:
-    import uvloop as _uvloop
-
-    _uvloop.install()
-except ImportError:  # pragma: no cover
-    _uvloop = None
-
+F = MagicFilter()
+flags = FlagGenerator()
 
 __all__ = (
+    "BaseMiddleware",
+    "Bot",
+    "Dispatcher",
+    "F",
+    "Router",
     "__api_version__",
     "__version__",
-    "types",
+    "enums",
+    "flags",
+    "html",
+    "md",
     "methods",
-    "Bot",
     "session",
-    "Dispatcher",
-    "Router",
-    "BaseMiddleware",
-    "filters",
-    "handler",
+    "types",
 )
-
-__version__ = "3.0.0a4"
-__api_version__ = "4.8"

@@ -1,13 +1,16 @@
 import functools
-from typing import Any, Dict, Union
+from collections.abc import Callable
+from typing import Any
 
 import pytest
+from magic_filter import F as A
 
-from aiogram.api.types import Update
-from aiogram.dispatcher.event.handler import CallableMixin, FilterObject, HandlerObject
-from aiogram.dispatcher.filters import Text
-from aiogram.dispatcher.filters.base import BaseFilter
-from aiogram.dispatcher.handler.base import BaseHandler
+from aiogram import F
+from aiogram.dispatcher.event.handler import CallableObject, FilterObject, HandlerObject
+from aiogram.filters import Filter
+from aiogram.handlers import BaseHandler
+from aiogram.types import Update
+from aiogram.utils.warnings import Recommendation
 
 
 def callback1(foo: int, bar: int, baz: int):
@@ -22,8 +25,12 @@ async def callback3(foo: int, **kwargs):
     return locals()
 
 
-class Filter(BaseFilter):
-    async def __call__(self, foo: int, bar: int, baz: int) -> Union[bool, Dict[str, Any]]:
+async def callback4(foo: int, *, bar: int, baz: int):
+    return locals()
+
+
+class TestFilter(Filter):
+    async def __call__(self, foo: int, bar: int, baz: int) -> bool | dict[str, Any]:
         return locals()
 
 
@@ -32,16 +39,31 @@ class SyncCallable:
         return locals()
 
 
-class TestCallableMixin:
-    @pytest.mark.parametrize("callback", [callback2, Filter()])
+class AsyncCallable:
+    async def __call__(self, foo, bar, baz):
+        return locals()
+
+
+class TestCallableObject:
+    @pytest.mark.parametrize("callback", [callback2, TestFilter(), AsyncCallable()])
     def test_init_awaitable(self, callback):
-        obj = CallableMixin(callback)
+        obj = CallableObject(callback)
         assert obj.awaitable
         assert obj.callback == callback
 
+    @pytest.mark.asyncio
+    async def test_call_async_callable_object(self):
+        obj = CallableObject(AsyncCallable())
+        assert await obj.call(foo=1, bar=2, baz=3) == {
+            "self": obj.callback,
+            "foo": 1,
+            "bar": 2,
+            "baz": 3,
+        }
+
     @pytest.mark.parametrize("callback", [callback1, SyncCallable()])
     def test_init_not_awaitable(self, callback):
-        obj = CallableMixin(callback)
+        obj = CallableObject(callback)
         assert not obj.awaitable
         assert obj.callback == callback
 
@@ -51,13 +73,13 @@ class TestCallableMixin:
             pytest.param(callback1, {"foo", "bar", "baz"}),
             pytest.param(callback2, {"foo", "bar", "baz"}),
             pytest.param(callback3, {"foo"}),
-            pytest.param(Filter(), {"self", "foo", "bar", "baz"}),
-            pytest.param(SyncCallable(), {"self", "foo", "bar", "baz"}),
+            pytest.param(TestFilter(), {"foo", "bar", "baz"}),
+            pytest.param(SyncCallable(), {"foo", "bar", "baz"}),
         ],
     )
-    def test_init_args_spec(self, callback, args):
-        obj = CallableMixin(callback)
-        assert set(obj.spec.args) == args
+    def test_init_args_spec(self, callback: Callable, args: set[str]):
+        obj = CallableObject(callback)
+        assert set(obj.params) == args
 
     def test_init_decorated(self):
         def decorator(func):
@@ -76,12 +98,12 @@ class TestCallableMixin:
         def callback2(foo, bar, baz):
             pass
 
-        obj1 = CallableMixin(callback1)
-        obj2 = CallableMixin(callback2)
+        obj1 = CallableObject(callback1)
+        obj2 = CallableObject(callback2)
 
-        assert set(obj1.spec.args) == {"foo", "bar", "baz"}
+        assert set(obj1.params) == {"foo", "bar", "baz"}
         assert obj1.callback == callback1
-        assert set(obj2.spec.args) == {"foo", "bar", "baz"}
+        assert set(obj2.params) == {"foo", "bar", "baz"}
         assert obj2.callback == callback2
 
     @pytest.mark.parametrize(
@@ -96,35 +118,52 @@ class TestCallableMixin:
                 {"foo": 42, "baz": "fuz", "bar": "test"},
             ),
             pytest.param(
+                functools.partial(callback2, bar="test"),
+                {"foo": 42, "spam": True, "baz": "fuz"},
+                {"foo": 42, "baz": "fuz"},
+            ),
+            pytest.param(
                 callback3,
                 {"foo": 42, "spam": True, "baz": "fuz", "bar": "test"},
                 {"foo": 42, "spam": True, "baz": "fuz", "bar": "test"},
             ),
             pytest.param(
-                Filter(), {"foo": 42, "spam": True, "baz": "fuz"}, {"foo": 42, "baz": "fuz"}
+                callback4,
+                {"foo": 42, "spam": True, "baz": "fuz", "bar": "test"},
+                {"foo": 42, "baz": "fuz", "bar": "test"},
+            ),
+            pytest.param(
+                TestFilter(), {"foo": 42, "spam": True, "baz": "fuz"}, {"foo": 42, "baz": "fuz"}
             ),
             pytest.param(
                 SyncCallable(), {"foo": 42, "spam": True, "baz": "fuz"}, {"foo": 42, "baz": "fuz"}
             ),
         ],
     )
-    def test_prepare_kwargs(self, callback, kwargs, result):
-        obj = CallableMixin(callback)
+    def test_prepare_kwargs(
+        self, callback: Callable, kwargs: dict[str, Any], result: dict[str, Any]
+    ):
+        obj = CallableObject(callback)
         assert obj._prepare_kwargs(kwargs) == result
 
-    @pytest.mark.asyncio
     async def test_sync_call(self):
-        obj = CallableMixin(callback1)
+        obj = CallableObject(callback1)
 
         result = await obj.call(foo=42, bar="test", baz="fuz", spam=True)
         assert result == {"foo": 42, "bar": "test", "baz": "fuz"}
 
-    @pytest.mark.asyncio
     async def test_async_call(self):
-        obj = CallableMixin(callback2)
+        obj = CallableObject(callback2)
 
         result = await obj.call(foo=42, bar="test", baz="fuz", spam=True)
         assert result == {"foo": 42, "bar": "test", "baz": "fuz"}
+
+
+class TestFilterObject:
+    def test_post_init(self):
+        case = F.test
+        filter_obj = FilterObject(callback=case)
+        assert filter_obj.callback == case.resolve
 
 
 async def simple_handler(*args, **kwargs):
@@ -132,14 +171,12 @@ async def simple_handler(*args, **kwargs):
 
 
 class TestHandlerObject:
-    @pytest.mark.asyncio
     async def test_check_with_bool_result(self):
         handler = HandlerObject(simple_handler, [FilterObject(lambda value: True)] * 3)
         result, data = await handler.check(42, foo=True)
         assert result
         assert data == {"foo": True}
 
-    @pytest.mark.asyncio
     async def test_check_with_dict_result(self):
         handler = HandlerObject(
             simple_handler,
@@ -154,7 +191,6 @@ class TestHandlerObject:
         assert result
         assert data == {"foo": True, "test0": "ok", "test1": "ok", "test2": "ok"}
 
-    @pytest.mark.asyncio
     async def test_check_with_combined_result(self):
         handler = HandlerObject(
             simple_handler,
@@ -164,13 +200,11 @@ class TestHandlerObject:
         assert result
         assert data == {"foo": True, "test": 42}
 
-    @pytest.mark.asyncio
     async def test_check_rejected(self):
         handler = HandlerObject(simple_handler, [FilterObject(lambda value: False)])
         result, data = await handler.check(42, foo=True)
         assert not result
 
-    @pytest.mark.asyncio
     async def test_check_partial_rejected(self):
         handler = HandlerObject(
             simple_handler, [FilterObject(lambda value: True), FilterObject(lambda value: False)]
@@ -178,7 +212,6 @@ class TestHandlerObject:
         result, data = await handler.check(42, foo=True)
         assert not result
 
-    @pytest.mark.asyncio
     async def test_class_based_handler(self):
         class MyHandler(BaseHandler):
             event: Update
@@ -193,3 +226,7 @@ class TestHandlerObject:
         assert len(handler.filters) == 1
         result = await handler.call(Update(update_id=42))
         assert result == 42
+
+    def test_warn_another_magic(self):
+        with pytest.warns(Recommendation):
+            FilterObject(callback=A.test.is_(True))

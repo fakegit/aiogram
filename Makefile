@@ -1,54 +1,18 @@
-.DEFAULT_GOAL := help
+.DEFAULT_GOAL := lint
 
-base_python := python3
-py := poetry run
-python := $(py) python
-
+package_dir := aiogram
+tests_dir := tests
+scripts_dir := scripts
+examples_dir := examples
+code_dir := $(package_dir) $(tests_dir) $(scripts_dir) $(examples_dir)
 reports_dir := reports
 
-.PHONY: help
-help:
-	@echo "======================================================================================="
-	@echo "                                  aiogram build tools                                  "
-	@echo "======================================================================================="
-	@echo "Environment:"
-	@echo "    help: Show this message"
-	@echo "    install: Install development dependencies"
-	@echo "    clean: Delete temporary files"
-	@echo ""
-	@echo "Code quality:"
-	@echo "    isort: Run isort tool"
-	@echo "    black: Run black tool"
-	@echo "    flake8: Run flake8 tool"
-	@echo "    flake8-report: Run flake8 with HTML reporting"
-	@echo "    mypy: Run mypy tool"
-	@echo "    mypy-report: Run mypy tool with HTML reporting"
-	@echo "    lint: Run isort, black, flake8 and mypy tools"
-	@echo ""
-	@echo "Tests:"
-	@echo "    test: Run tests"
-	@echo "    test-coverage: Run tests with HTML reporting (results + coverage)"
-	@echo "    test-coverage-report: Open coverage report in default system web browser"
-	@echo ""
-	@echo "Documentation:"
-	@echo "	   docs: Build docs"
-	@echo "	   docs-serve: Serve docs for local development"
-	@echo "    docs-prepare-reports: Move all HTML reports to docs dir"
-	@echo ""
-	@echo "Project"
-	@echo "    build: Run tests build package and docs"
-	@echo ""
-
-
+redis_connection := redis://localhost:6379
+mongo_connection := mongodb://mongo:mongo@localhost:27017
 
 # =================================================================================================
 # Environment
 # =================================================================================================
-
-.PHONY: install
-install:
-	$(base_python) -m pip install --user -U poetry
-	poetry install
 
 .PHONY: clean
 clean:
@@ -58,95 +22,121 @@ clean:
 	rm -f `find . -type f -name '.*~' `
 	rm -rf `find . -name .pytest_cache`
 	rm -rf *.egg-info
-	rm -f .coverage
 	rm -f report.html
-	rm -f .coverage.*
-	rm -rf {build,dist,site,.cache,.mypy_cache,reports}
+	rm -f .coverage
+	rm -rf {build,dist,site,.cache,.mypy_cache,.ruff_cache,reports}
 
+.PHONY: install
+install: clean
+	uv sync --locked --all-extras --group dev --group test
+	uv run pre-commit install
 
 # =================================================================================================
 # Code quality
 # =================================================================================================
 
-.PHONY: isort
-isort:
-	$(py) isort -rc aiogram tests
-
-.PHONY: black
-black:
-	$(py) black aiogram tests
-
-.PHONY: flake8
-flake8:
-	$(py) flake8 aiogram
-
-.PHONY: flake8-report
-flake8-report:
-	mkdir -p $(reports_dir)/flake8
-	$(py) flake8 --format=html --htmldir=$(reports_dir)/flake8 aiogram
-
-.PHONY: mypy
-mypy:
-	$(py) mypy aiogram
-
-.PHONY: mypy-report
-mypy-report:
-	$(py) mypy aiogram --html-report $(reports_dir)/typechecking
-
 .PHONY: lint
-lint: isort black flake8 mypy
+lint:
+	uv run ruff format --check --diff $(package_dir) $(tests_dir) $(scripts_dir) $(examples_dir)
+	uv run ruff check --show-fixes --preview $(package_dir) $(examples_dir)
+	uv run mypy --native-parser --num-workers 8 $(package_dir)
+	# aiogram/types/custom.py has a `sys.platform == "win32"` branch that mypy prunes as
+	# unreachable on Linux; this second pass type-checks it.
+	uv run mypy --native-parser --num-workers 8 --platform win32 $(package_dir)
+	uv run pre-commit run --all-files --show-diff-on-failure
+
+.PHONY: lint-workflows
+lint-workflows:
+	uv run scripts/check_action_refs.py
+	uvx zizmor --config .github/zizmor.yml .
+	uvx --from actionlint-py actionlint
+
+.PHONY: reformat
+reformat:
+	uv run ruff format $(code_dir)
+	uv run ruff check --fix $(code_dir)
 
 # =================================================================================================
 # Tests
 # =================================================================================================
+.PHONY: test-run-services
+test-run-services:
+	@#docker-compose -f tests/docker-compose.yml -p aiogram3-dev up -d
 
 .PHONY: test
-test:
-	$(py) pytest --cov=aiogram --cov-config .coveragerc tests/
+test: test-run-services
+	uv run pytest --cov=aiogram tests/ --redis $(redis_connection) --mongo $(mongo_connection)
 
 .PHONY: test-coverage
-test-coverage:
+test-coverage: test-run-services
 	mkdir -p $(reports_dir)/tests/
-	$(py) pytest --cov=aiogram --cov-config .coveragerc --html=$(reports_dir)/tests/index.html tests/
-
-
-.PHONY: test-coverage-report
-test-coverage-report:
-	$(py) coverage html -d $(reports_dir)/coverage
+	uv run pytest --cov=aiogram --html=$(reports_dir)/tests/index.html tests/ --redis $(redis_connection) --mongo $(mongo_connection)
+	uv run coverage html -d $(reports_dir)/coverage
 
 .PHONY: test-coverage-view
 test-coverage-view:
-	$(py) coverage html -d $(reports_dir)/coverage
-	python -c "import webbrowser; webbrowser.open('file://$(shell pwd)/reports/coverage/index.html')"
+	uv run coverage html -d $(reports_dir)/coverage
+	uv run python -c "import webbrowser; webbrowser.open('file://$(shell pwd)/reports/coverage/index.html')"
 
 # =================================================================================================
 # Docs
 # =================================================================================================
 
-.PHONY: docs
-docs:
-	$(py) mkdocs build
+locales := uk_UA
+locale_targets := $(addprefix docs-serve-, $(locales))
+locales_pot := _build/gettext
+docs_dir := docs
 
-.PHONY: docs-serve
+docs-gettext:
+	uv run --extra docs bash -c 'cd $(docs_dir) && make gettext'
+	uv run --extra docs bash -c 'cd $(docs_dir) && sphinx-intl update -p $(locales_pot) $(addprefix -l , $(locales))'
+.PHONY: docs-gettext
+
 docs-serve:
-	$(py) mkdocs serve
+	uv run --extra docs sphinx-autobuild --watch aiogram/ --watch CHANGES.rst --watch README.rst docs/ docs/_build/ $(OPTS)
+.PHONY: docs-serve
 
-.PHONY: docs-copy-reports
-docs-copy-reports:
-	mv $(reports_dir)/* site/reports
+$(locale_targets): docs-serve-%:
+	$(MAKE) docs-serve OPTS="-D language=$(subst docs-serve-,,$@)"
+.PHONY: $(locale_targets)
 
 # =================================================================================================
 # Project
 # =================================================================================================
 
 .PHONY: build
-build: clean flake8-report mypy-report test-coverage docs docs-copy-reports
-	mkdir -p site/simple
-	poetry build
-	mv dist site/simple/aiogram
-
+build: clean
+	uv build
 
 .PHONY: bump
 bump:
-	poetry version $(args)
-	$(python) scripts/bump_versions.py
+	uv run python scripts/bump_version.py $(args)
+	uv run python scripts/bump_versions.py
+
+update-api:
+	uv run --extra cli butcher parse
+	uv run --extra cli butcher refresh
+	uv run --extra cli butcher apply all
+	@$(MAKE) bump
+
+.PHONY: towncrier-build
+towncrier-build:
+	uv run --extra docs towncrier build --yes
+
+.PHONY: towncrier-draft
+towncrier-draft:
+	uv run --extra docs towncrier build --draft
+
+.PHONY: towncrier-draft-github
+towncrier-draft-github:
+	mkdir -p dist
+	uv run --extra docs towncrier build --draft | pandoc - -o dist/release.md
+
+.PHONY: prepare-release
+prepare-release: bump towncrier-build
+
+.PHONY: release
+release:
+	git add .
+	git commit -m "Release $(shell uv run python -c 'from aiogram import __version__; print(__version__)')"
+	git tag v$(shell uv run python -c 'from aiogram import __version__; print(__version__)')

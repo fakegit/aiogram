@@ -1,15 +1,19 @@
 .idea/
+.vscode/
 
 __pycache__/
 *.py[cod]
 
+*.mo
+
 env/
 build/
+_build/
 dist/
 site/
 *.egg-info/
 *.egg
-aiogram/_meta.py
+.ruff_cache
 
 .mypy_cache
 .pytest_cache
@@ -17,3 +21,7 @@ aiogram/_meta.py
 reports
 
 dev/
+.venv/
+
+# graphify — generated knowledge graph output (caches, embeddings, rendered graph)
+graphify-out/

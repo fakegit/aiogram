@@ -1,33 +1,11 @@
 import datetime
-from typing import Union
 
-import pytest
-
-from aiogram.api.methods import EditMessageCaption, Request
-from aiogram.api.types import Chat, Message
+from aiogram.methods import EditMessageCaption
+from aiogram.types import Chat, Message
 from tests.mocked_bot import MockedBot
 
 
 class TestEditMessageCaption:
-    @pytest.mark.asyncio
-    async def test_method(self, bot: MockedBot):
-        prepare_result = bot.add_result_for(
-            EditMessageCaption,
-            ok=True,
-            result=Message(
-                message_id=42,
-                date=datetime.datetime.now(),
-                text="text",
-                chat=Chat(id=42, type="private"),
-            ),
-        )
-
-        response: Union[Message, bool] = await EditMessageCaption()
-        request: Request = bot.get_request()
-        assert request.method == "editMessageCaption"
-        assert response == prepare_result.result
-
-    @pytest.mark.asyncio
     async def test_bot_method(self, bot: MockedBot):
         prepare_result = bot.add_result_for(
             EditMessageCaption,
@@ -40,7 +18,6 @@ class TestEditMessageCaption:
             ),
         )
 
-        response: Union[Message, bool] = await bot.edit_message_caption()
-        request: Request = bot.get_request()
-        assert request.method == "editMessageCaption"
+        response: Message | bool = await bot.edit_message_caption()
+        bot.get_request()
         assert response == prepare_result.result

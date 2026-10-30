@@ -1,55 +1,104 @@
 from __future__ import annotations
 
-import warnings
-from typing import Any, Dict, Generator, List, Optional, Union
+from collections.abc import Generator
+from typing import TYPE_CHECKING, Any, Final
 
-from ..api.types import TelegramObject, Update
-from ..utils.imports import import_module
-from ..utils.warnings import CodeHasNoEffect
-from .event.bases import NOT_HANDLED, SkipHandler
+from .event.bases import REJECTED, UNHANDLED
 from .event.event import EventObserver
 from .event.telegram import TelegramEventObserver
-from .filters import BUILTIN_FILTERS
-from .middlewares.error import ErrorsMiddleware
+
+if TYPE_CHECKING:
+    from aiogram.types import TelegramObject
+
+INTERNAL_UPDATE_TYPES: Final[frozenset[str]] = frozenset({"update", "error"})
 
 
 class Router:
     """
-    Events router
+    Router can route update, and it nested update types like messages, callback query,
+    polls and all other event types.
+
+    Event handlers can be registered in observer by two ways:
+
+    - By observer method - :obj:`router.<event_type>.register(handler, <filters, ...>)`
+    - By decorator - :obj:`@router.<event_type>(<filters, ...>)`
     """
 
-    def __init__(self, use_builtin_filters: bool = True) -> None:
-        self.use_builtin_filters = use_builtin_filters
+    def __init__(self, *, name: str | None = None) -> None:
+        """
+        :param name: Optional router name, can be useful for debugging
+        """
 
-        self._parent_router: Optional[Router] = None
-        self.sub_routers: List[Router] = []
+        self.name = name or hex(id(self))
+
+        self._parent_router: Router | None = None
+        self.sub_routers: list[Router] = []
 
         # Observers
-        self.update = TelegramEventObserver(router=self, event_name="update")
         self.message = TelegramEventObserver(router=self, event_name="message")
         self.edited_message = TelegramEventObserver(router=self, event_name="edited_message")
         self.channel_post = TelegramEventObserver(router=self, event_name="channel_post")
         self.edited_channel_post = TelegramEventObserver(
-            router=self, event_name="edited_channel_post"
+            router=self,
+            event_name="edited_channel_post",
         )
         self.inline_query = TelegramEventObserver(router=self, event_name="inline_query")
         self.chosen_inline_result = TelegramEventObserver(
-            router=self, event_name="chosen_inline_result"
+            router=self,
+            event_name="chosen_inline_result",
         )
         self.callback_query = TelegramEventObserver(router=self, event_name="callback_query")
         self.shipping_query = TelegramEventObserver(router=self, event_name="shipping_query")
         self.pre_checkout_query = TelegramEventObserver(
-            router=self, event_name="pre_checkout_query"
+            router=self,
+            event_name="pre_checkout_query",
         )
         self.poll = TelegramEventObserver(router=self, event_name="poll")
         self.poll_answer = TelegramEventObserver(router=self, event_name="poll_answer")
-        self.errors = TelegramEventObserver(router=self, event_name="error")
+        self.my_chat_member = TelegramEventObserver(router=self, event_name="my_chat_member")
+        self.chat_member = TelegramEventObserver(router=self, event_name="chat_member")
+        self.chat_join_request = TelegramEventObserver(router=self, event_name="chat_join_request")
+        self.message_reaction = TelegramEventObserver(router=self, event_name="message_reaction")
+        self.message_reaction_count = TelegramEventObserver(
+            router=self,
+            event_name="message_reaction_count",
+        )
+        self.chat_boost = TelegramEventObserver(router=self, event_name="chat_boost")
+        self.removed_chat_boost = TelegramEventObserver(
+            router=self,
+            event_name="removed_chat_boost",
+        )
+        self.deleted_business_messages = TelegramEventObserver(
+            router=self,
+            event_name="deleted_business_messages",
+        )
+        self.business_connection = TelegramEventObserver(
+            router=self,
+            event_name="business_connection",
+        )
+        self.edited_business_message = TelegramEventObserver(
+            router=self,
+            event_name="edited_business_message",
+        )
+        self.business_message = TelegramEventObserver(router=self, event_name="business_message")
+        self.purchased_paid_media = TelegramEventObserver(
+            router=self,
+            event_name="purchased_paid_media",
+        )
+        self.managed_bot = TelegramEventObserver(router=self, event_name="managed_bot")
+        self.guest_message = TelegramEventObserver(router=self, event_name="guest_message")
+        self.subscription = TelegramEventObserver(router=self, event_name="subscription")
+        self.stopped_message_generation = TelegramEventObserver(
+            router=self,
+            event_name="stopped_message_generation",
+        )
+
+        self.errors = self.error = TelegramEventObserver(router=self, event_name="error")
 
         self.startup = EventObserver()
         self.shutdown = EventObserver()
 
-        self.observers: Dict[str, TelegramEventObserver] = {
-            "update": self.update,
+        self.observers: dict[str, TelegramEventObserver] = {
             "message": self.message,
             "edited_message": self.edited_message,
             "channel_post": self.channel_post,
@@ -61,23 +110,102 @@ class Router:
             "pre_checkout_query": self.pre_checkout_query,
             "poll": self.poll,
             "poll_answer": self.poll_answer,
+            "my_chat_member": self.my_chat_member,
+            "chat_member": self.chat_member,
+            "chat_join_request": self.chat_join_request,
+            "message_reaction": self.message_reaction,
+            "message_reaction_count": self.message_reaction_count,
+            "chat_boost": self.chat_boost,
+            "removed_chat_boost": self.removed_chat_boost,
+            "deleted_business_messages": self.deleted_business_messages,
+            "business_connection": self.business_connection,
+            "edited_business_message": self.edited_business_message,
+            "business_message": self.business_message,
+            "purchased_paid_media": self.purchased_paid_media,
+            "managed_bot": self.managed_bot,
+            "guest_message": self.guest_message,
+            "subscription": self.subscription,
+            "stopped_message_generation": self.stopped_message_generation,
             "error": self.errors,
         }
 
-        # Root handler
-        self.update.register(self._listen_update)
+    def __str__(self) -> str:
+        return f"{type(self).__name__} {self.name!r}"
 
-        self.update.outer_middleware(ErrorsMiddleware(self))
+    def __repr__(self) -> str:
+        return f"<{self}>"
 
-        # Builtin filters
-        if use_builtin_filters:
-            for name, observer in self.observers.items():
-                for builtin_filter in BUILTIN_FILTERS.get(name, ()):
-                    observer.bind_filter(builtin_filter)
+    def resolve_used_update_types(self, skip_events: set[str] | None = None) -> list[str]:
+        """
+        Resolve registered event names
+
+        Is useful for getting updates only for registered event types.
+
+        :param skip_events: skip specified event names
+        :return: sorted list of registered names
+        """
+        handlers_in_use: set[str] = set()
+        if skip_events is None:
+            skip_events = set()
+        skip_events = {*skip_events, *INTERNAL_UPDATE_TYPES}
+
+        for router in self.chain_tail:
+            for update_name, observer in router.observers.items():
+                if observer.handlers and update_name not in skip_events:
+                    handlers_in_use.add(update_name)
+
+        return sorted(handlers_in_use)
+
+    async def propagate_event(self, update_type: str, event: TelegramObject, **kwargs: Any) -> Any:
+        kwargs.update(event_router=self)
+        observer = self.observers.get(update_type)
+
+        async def _wrapped(telegram_event: TelegramObject, **data: Any) -> Any:
+            return await self._propagate_event(
+                observer=observer,
+                update_type=update_type,
+                event=telegram_event,
+                **data,
+            )
+
+        if observer:
+            return await observer.wrap_outer_middleware(_wrapped, event=event, data=kwargs)
+        return await _wrapped(event, **kwargs)
+
+    async def _propagate_event(
+        self,
+        observer: TelegramEventObserver | None,
+        update_type: str,
+        event: TelegramObject,
+        **kwargs: Any,
+    ) -> Any:
+        response = UNHANDLED
+        if observer:
+            # Check globally defined filters before any other handler will be checked.
+            # This check is placed here instead of `trigger` method to add possibility
+            # to pass context to handlers from global filters.
+            result, data = await observer.check_root_filters(event, **kwargs)
+            if not result:
+                return UNHANDLED
+            kwargs.update(data)
+
+            response = await observer.trigger(event, **kwargs)
+            if response is REJECTED:  # pragma: no cover
+                # Possible only if some handler returns REJECTED
+                return UNHANDLED
+            if response is not UNHANDLED:
+                return response
+
+        for router in self.sub_routers:
+            response = await router.propagate_event(update_type=update_type, event=event, **kwargs)
+            if response is not UNHANDLED:
+                break
+
+        return response
 
     @property
     def chain_head(self) -> Generator[Router, None, None]:
-        router: Optional[Router] = self
+        router: Router | None = self
         while router:
             yield router
             router = router.parent_router
@@ -89,14 +217,7 @@ class Router:
             yield from router.chain_tail
 
     @property
-    def chain(self) -> Generator[Router, None, None]:
-        yield from self.chain_head
-        tail = self.chain_tail
-        next(tail)  # Skip self
-        yield from tail
-
-    @property
-    def parent_router(self) -> Optional[Router]:
+    def parent_router(self) -> Router | None:
         return self._parent_router
 
     @parent_router.setter
@@ -111,116 +232,51 @@ class Router:
         :param router:
         """
         if not isinstance(router, Router):
-            raise ValueError(
-                f"router should be instance of Router not {type(router).__class__.__name__}"
-            )
+            msg = f"router should be instance of Router not {type(router).__name__!r}"
+            raise ValueError(msg)
         if self._parent_router:
-            raise RuntimeError(f"Router is already attached to {self._parent_router!r}")
+            msg = f"Router is already attached to {self._parent_router!r}"
+            raise RuntimeError(msg)
         if self == router:
-            raise RuntimeError("Self-referencing routers is not allowed")
+            msg = "Self-referencing routers is not allowed"
+            raise RuntimeError(msg)
 
-        parent: Optional[Router] = router
+        parent: Router | None = router
         while parent is not None:
             if parent == self:
-                raise RuntimeError("Circular referencing of Router is not allowed")
-
-            if not self.use_builtin_filters and parent.use_builtin_filters:
-                warnings.warn(
-                    f"Router(use_builtin_filters=False) has no effect for router {self} "
-                    f"in due to builtin filters is already registered in parent router",
-                    CodeHasNoEffect,
-                    stacklevel=3,
-                )
+                msg = "Circular referencing of Router is not allowed"
+                raise RuntimeError(msg)
 
             parent = parent.parent_router
 
         self._parent_router = router
         router.sub_routers.append(self)
 
-    def include_router(self, router: Union[Router, str]) -> Router:
+    def include_routers(self, *routers: Router) -> None:
+        """
+        Attach multiple routers.
+
+        :param routers:
+        :return:
+        """
+        if not routers:
+            msg = "At least one router must be provided"
+            raise ValueError(msg)
+        for router in routers:
+            self.include_router(router)
+
+    def include_router(self, router: Router) -> Router:
         """
         Attach another router.
-
-        Can be attached directly or by import string in format "<module>:<attribute>"
 
         :param router:
         :return:
         """
-        if isinstance(router, str):  # Resolve import string
-            router = import_module(router)
         if not isinstance(router, Router):
-            raise ValueError(
-                f"router should be instance of Router not {type(router).__class__.__name__}"
-            )
+            msg = f"router should be instance of Router not {type(router).__name__!r}"
+            raise ValueError(msg)
         router.parent_router = self
         return router
-
-    async def _listen_update(self, update: Update, **kwargs: Any) -> Any:
-        """
-        Main updates listener
-
-        Workflow:
-        - Detect content type and propagate to observers in current router
-        - If no one filter is pass - propagate update to child routers as Update
-
-        :param update:
-        :param kwargs:
-        :return:
-        """
-        event: TelegramObject
-        if update.message:
-            update_type = "message"
-            event = update.message
-        elif update.edited_message:
-            update_type = "edited_message"
-            event = update.edited_message
-        elif update.channel_post:
-            update_type = "channel_post"
-            event = update.channel_post
-        elif update.edited_channel_post:
-            update_type = "edited_channel_post"
-            event = update.edited_channel_post
-        elif update.inline_query:
-            update_type = "inline_query"
-            event = update.inline_query
-        elif update.chosen_inline_result:
-            update_type = "chosen_inline_result"
-            event = update.chosen_inline_result
-        elif update.callback_query:
-            update_type = "callback_query"
-            event = update.callback_query
-        elif update.shipping_query:
-            update_type = "shipping_query"
-            event = update.shipping_query
-        elif update.pre_checkout_query:
-            update_type = "pre_checkout_query"
-            event = update.pre_checkout_query
-        elif update.poll:
-            update_type = "poll"
-            event = update.poll
-        elif update.poll_answer:
-            update_type = "poll_answer"
-            event = update.poll_answer
-        else:
-            warnings.warn(
-                "Detected unknown update type.\n"
-                "Seems like Telegram Bot API was updated and you have "
-                "installed not latest version of aiogram framework",
-                RuntimeWarning,
-            )
-            raise SkipHandler
-
-        kwargs.update(event_update=update, event_router=self)
-        observer = self.observers[update_type]
-        response = await observer.trigger(event, update=update, **kwargs)
-
-        if response is NOT_HANDLED:  # Resolve nested routers
-            for router in self.sub_routers:
-                response = await router.update.trigger(event=update, **kwargs)
-                if response is NOT_HANDLED:
-                    continue
-
-        return response
 
     async def emit_startup(self, *args: Any, **kwargs: Any) -> None:
         """
@@ -247,146 +303,3 @@ class Router:
         await self.shutdown.trigger(*args, **kwargs)
         for router in self.sub_routers:
             await router.emit_shutdown(*args, **kwargs)
-
-    @property
-    def update_handler(self) -> TelegramEventObserver:
-        warnings.warn(
-            "`Router.update_handler(...)` is deprecated and will be removed in version 3.2 "
-            "use `Router.update(...)`",
-            DeprecationWarning,
-            stacklevel=2,
-        )
-
-        return self.update
-
-    @property
-    def message_handler(self) -> TelegramEventObserver:
-        warnings.warn(
-            "`Router.message_handler(...)` is deprecated and will be removed in version 3.2 "
-            "use `Router.message(...)`",
-            DeprecationWarning,
-            stacklevel=2,
-        )
-
-        return self.message
-
-    @property
-    def edited_message_handler(self) -> TelegramEventObserver:
-        warnings.warn(
-            "`Router.edited_message_handler(...)` is deprecated and will be removed in version 3.2 "
-            "use `Router.edited_message(...)`",
-            DeprecationWarning,
-            stacklevel=2,
-        )
-
-        return self.edited_message
-
-    @property
-    def channel_post_handler(self) -> TelegramEventObserver:
-        warnings.warn(
-            "`Router.channel_post_handler(...)` is deprecated and will be removed in version 3.2 "
-            "use `Router.channel_post(...)`",
-            DeprecationWarning,
-            stacklevel=2,
-        )
-
-        return self.channel_post
-
-    @property
-    def edited_channel_post_handler(self) -> TelegramEventObserver:
-        warnings.warn(
-            "`Router.edited_channel_post_handler(...)` is deprecated and will be removed in version 3.2 "
-            "use `Router.edited_channel_post(...)`",
-            DeprecationWarning,
-            stacklevel=2,
-        )
-
-        return self.edited_channel_post
-
-    @property
-    def inline_query_handler(self) -> TelegramEventObserver:
-        warnings.warn(
-            "`Router.inline_query_handler(...)` is deprecated and will be removed in version 3.2 "
-            "use `Router.inline_query(...)`",
-            DeprecationWarning,
-            stacklevel=2,
-        )
-
-        return self.inline_query
-
-    @property
-    def chosen_inline_result_handler(self) -> TelegramEventObserver:
-        warnings.warn(
-            "`Router.chosen_inline_result_handler(...)` is deprecated and will be removed in version 3.2 "
-            "use `Router.chosen_inline_result(...)`",
-            DeprecationWarning,
-            stacklevel=2,
-        )
-
-        return self.chosen_inline_result
-
-    @property
-    def callback_query_handler(self) -> TelegramEventObserver:
-        warnings.warn(
-            "`Router.callback_query_handler(...)` is deprecated and will be removed in version 3.2 "
-            "use `Router.callback_query(...)`",
-            DeprecationWarning,
-            stacklevel=2,
-        )
-
-        return self.callback_query
-
-    @property
-    def shipping_query_handler(self) -> TelegramEventObserver:
-        warnings.warn(
-            "`Router.shipping_query_handler(...)` is deprecated and will be removed in version 3.2 "
-            "use `Router.shipping_query(...)`",
-            DeprecationWarning,
-            stacklevel=2,
-        )
-
-        return self.shipping_query
-
-    @property
-    def pre_checkout_query_handler(self) -> TelegramEventObserver:
-        warnings.warn(
-            "`Router.pre_checkout_query_handler(...)` is deprecated and will be removed in version 3.2 "
-            "use `Router.pre_checkout_query(...)`",
-            DeprecationWarning,
-            stacklevel=2,
-        )
-
-        return self.pre_checkout_query
-
-    @property
-    def poll_handler(self) -> TelegramEventObserver:
-        warnings.warn(
-            "`Router.poll_handler(...)` is deprecated and will be removed in version 3.2 "
-            "use `Router.poll(...)`",
-            DeprecationWarning,
-            stacklevel=2,
-        )
-
-        return self.poll
-
-    @property
-    def poll_answer_handler(self) -> TelegramEventObserver:
-        warnings.warn(
-            "`Router.poll_answer_handler(...)` is deprecated and will be removed in version 3.2 "
-            "use `Router.poll_answer(...)`",
-            DeprecationWarning,
-            stacklevel=2,
-        )
-
-        return self.poll_answer
-
-    @property
-    def errors_handler(self) -> TelegramEventObserver:
-        warnings.warn(
-            "`Router.errors_handler(...)` is deprecated and will be removed in version 3.2 "
-            "use `Router.errors(...)`",
-            DeprecationWarning,
-            stacklevel=2,
-        )
-
-        return self.errors

@@ -1,18 +1,24 @@
-from typing import AsyncContextManager, AsyncGenerator
+import asyncio
+from collections.abc import AsyncGenerator, AsyncIterable
+from typing import (
+    Any,
+    AsyncContextManager,
+)
+from unittest.mock import AsyncMock, patch
 
-import aiohttp
 import aiohttp_socks
 import pytest
+from aiohttp import ClientError
 from aresponses import ResponsesMockServer
 
-from aiogram.api.client.session.aiohttp import AiohttpSession
-from aiogram.api.methods import Request, TelegramMethod
-from aiogram.api.types import InputFile
-
-try:
-    from asynctest import CoroutineMock, patch
-except ImportError:
-    from unittest.mock import AsyncMock as CoroutineMock, patch  # type: ignore
+from aiogram import Bot
+from aiogram.client.default import Default
+from aiogram.client.session import aiohttp
+from aiogram.client.session.aiohttp import AiohttpSession
+from aiogram.exceptions import TelegramNetworkError
+from aiogram.methods import TelegramMethod
+from aiogram.types import InputFile
+from tests.mocked_bot import MockedBot
 
 
 class BareInputFile(InputFile):
@@ -21,69 +27,56 @@ class BareInputFile(InputFile):
 
 
 class TestAiohttpSession:
-    @pytest.mark.asyncio
     async def test_create_session(self):
         session = AiohttpSession()
-
         assert session._session is None
         aiohttp_session = await session.create_session()
         assert session._session is not None
         assert isinstance(aiohttp_session, aiohttp.ClientSession)
+        await session.close()
 
-    @pytest.mark.asyncio
     async def test_create_proxy_session(self):
-        session = AiohttpSession(
-            proxy=("socks5://proxy.url/", aiohttp.BasicAuth("login", "password", "encoding"))
-        )
+        auth = aiohttp.BasicAuth("login", "password", "encoding")
+        async with AiohttpSession(proxy=("socks5://proxy.url:1080/", auth)) as session:
+            assert session._connector_type == aiohttp_socks.ProxyConnector
 
-        assert session._connector_type == aiohttp_socks.ProxyConnector
+            assert isinstance(session._connector_init, dict)
+            assert session._connector_init["proxy_type"] is aiohttp_socks.ProxyType.SOCKS5
 
-        assert isinstance(session._connector_init, dict)
-        assert session._connector_init["proxy_type"] is aiohttp_socks.ProxyType.SOCKS5
+            aiohttp_session = await session.create_session()
+            assert isinstance(aiohttp_session.connector, aiohttp_socks.ProxyConnector)
 
-        aiohttp_session = await session.create_session()
-        assert isinstance(aiohttp_session.connector, aiohttp_socks.ProxyConnector)
-
-    @pytest.mark.asyncio
     async def test_create_proxy_session_proxy_url(self):
-        session = AiohttpSession(proxy="socks4://proxy.url/")
+        async with AiohttpSession(proxy="socks4://proxy.url:1080/") as session:
+            assert isinstance(session.proxy, str)
 
-        assert isinstance(session.proxy, str)
+            assert isinstance(session._connector_init, dict)
+            assert session._connector_init["proxy_type"] is aiohttp_socks.ProxyType.SOCKS4
 
-        assert isinstance(session._connector_init, dict)
-        assert session._connector_init["proxy_type"] is aiohttp_socks.ProxyType.SOCKS4
+            aiohttp_session = await session.create_session()
+            assert isinstance(aiohttp_session.connector, aiohttp_socks.ProxyConnector)
 
-        aiohttp_session = await session.create_session()
-        assert isinstance(aiohttp_session.connector, aiohttp_socks.ProxyConnector)
-
-    @pytest.mark.asyncio
     async def test_create_proxy_session_chained_proxies(self):
-        session = AiohttpSession(
-            proxy=[
-                "socks4://proxy.url/",
-                "socks5://proxy.url/",
-                "http://user:password@127.0.0.1:3128",
-            ]
-        )
+        proxy_chain = [
+            "socks4://proxy.url:1080/",
+            "socks5://proxy.url:1080/",
+            "http://user:password@127.0.0.1:3128",
+        ]
+        async with AiohttpSession(proxy=proxy_chain) as session:
+            assert isinstance(session.proxy, list)
 
-        assert isinstance(session.proxy, list)
+            assert isinstance(session._connector_init, dict)
 
-        assert isinstance(session._connector_init, dict)
-        assert isinstance(session._connector_init["proxy_infos"], list)
-        assert isinstance(session._connector_init["proxy_infos"][0], aiohttp_socks.ProxyInfo)
+            proxy_infos = session._connector_init["proxy_infos"]
+            assert isinstance(proxy_infos, list)
+            assert isinstance(proxy_infos[0], aiohttp_socks.ProxyInfo)
+            assert proxy_infos[0].proxy_type is aiohttp_socks.ProxyType.SOCKS4
+            assert proxy_infos[1].proxy_type is aiohttp_socks.ProxyType.SOCKS5
+            assert proxy_infos[2].proxy_type is aiohttp_socks.ProxyType.HTTP
 
-        assert (
-            session._connector_init["proxy_infos"][0].proxy_type is aiohttp_socks.ProxyType.SOCKS4
-        )
-        assert (
-            session._connector_init["proxy_infos"][1].proxy_type is aiohttp_socks.ProxyType.SOCKS5
-        )
-        assert session._connector_init["proxy_infos"][2].proxy_type is aiohttp_socks.ProxyType.HTTP
+            aiohttp_session = await session.create_session()
+            assert isinstance(aiohttp_session.connector, aiohttp_socks.ChainProxyConnector)
 
-        aiohttp_session = await session.create_session()
-        assert isinstance(aiohttp_session.connector, aiohttp_socks.ChainProxyConnector)
-
-    @pytest.mark.asyncio
     async def test_reset_connector(self):
         session = AiohttpSession()
         assert session._should_reset_connector
@@ -93,61 +86,79 @@ class TestAiohttpSession:
         assert session._should_reset_connector is False
 
         assert session.proxy is None
-        session.proxy = "socks5://auth:auth@proxy.url/"
+        session.proxy = "socks5://auth:auth@proxy.url:1080/"
         assert session._should_reset_connector
         await session.create_session()
         assert session._should_reset_connector is False
+
         await session.close()
 
-    @pytest.mark.asyncio
     async def test_close_session(self):
         session = AiohttpSession()
         await session.create_session()
 
-        with patch("aiohttp.ClientSession.close", new=CoroutineMock()) as mocked_close:
+        with patch("aiohttp.ClientSession.close", new=AsyncMock()) as mocked_close:
             await session.close()
             mocked_close.assert_called_once()
 
-    def test_build_form_data_with_data_only(self):
-        request = Request(
-            method="method",
-            data={
-                "str": "value",
-                "int": 42,
-                "bool": True,
-                "null": None,
-                "list": ["foo"],
-                "dict": {"bar": "baz"},
-            },
-        )
+        await session.close()
+
+    def test_build_form_data_with_data_only(self, bot: MockedBot):
+        class TestMethod(TelegramMethod[bool]):
+            __api_method__ = "test"
+            __returning__ = bool
+
+            str_: str
+            int_: int
+            bool_: bool
+            unset_: str | Default = Default("parse_mode")
+            null_: None
+            list_: list[str]
+            dict_: dict[str, Any]
 
         session = AiohttpSession()
-        form = session.build_form_data(request)
+        form = session.build_form_data(
+            bot,
+            TestMethod(
+                str_="value",
+                int_=42,
+                bool_=True,
+                unset_=Default("parse_mode"),
+                null_=None,
+                list_=["foo"],
+                dict_={"bar": "baz"},
+            ),
+        )
 
         fields = form._fields
         assert len(fields) == 5
         assert all(isinstance(field[2], str) for field in fields)
-        assert "null" not in [item[0]["name"] for item in fields]
+        assert "null_" not in [item[0]["name"] for item in fields]
 
-    def test_build_form_data_with_files(self):
-        request = Request(
-            method="method",
-            data={"key": "value"},
-            files={"document": BareInputFile(filename="file.txt")},
-        )
+    def test_build_form_data_with_files(self, bot: Bot):
+        class TestMethod(TelegramMethod[bool]):
+            __api_method__ = "test"
+            __returning__ = bool
+
+            key: str
+            document: InputFile
 
         session = AiohttpSession()
-        form = session.build_form_data(request)
+        form = session.build_form_data(
+            bot,
+            TestMethod(key="value", document=BareInputFile(filename="file.txt")),
+        )
 
         fields = form._fields
 
-        assert len(fields) == 2
+        assert len(fields) == 3
         assert fields[1][0]["name"] == "document"
-        assert fields[1][0]["filename"] == "file.txt"
-        assert isinstance(fields[1][2], BareInputFile)
+        assert fields[1][2].startswith("attach://")
+        assert fields[2][0]["name"] == fields[1][2][9:]
+        assert fields[2][0]["filename"] == "file.txt"
+        assert isinstance(fields[2][2], AsyncIterable)
 
-    @pytest.mark.asyncio
-    async def test_make_request(self, aresponses: ResponsesMockServer):
+    async def test_make_request(self, bot: MockedBot, aresponses: ResponsesMockServer):
         aresponses.add(
             aresponses.ANY,
             "/bot42:TEST/method",
@@ -159,56 +170,91 @@ class TestAiohttpSession:
             ),
         )
 
-        session = AiohttpSession()
+        async with AiohttpSession() as session:
 
-        class TestMethod(TelegramMethod[int]):
-            __returning__ = int
+            class TestMethod(TelegramMethod[int]):
+                __returning__ = int
+                __api_method__ = "method"
 
-            def build_request(self) -> Request:
-                return Request(method="method", data={})
+            call = TestMethod()
 
-        call = TestMethod()
-        with patch(
-            "aiogram.api.client.session.base.BaseSession.raise_for_status"
-        ) as patched_raise_for_status:
-            result = await session.make_request("42:TEST", call)
+            result = await session.make_request(bot, call)
             assert isinstance(result, int)
             assert result == 42
 
-            assert patched_raise_for_status.called_once()
+    @pytest.mark.parametrize("error", [ClientError("mocked"), asyncio.TimeoutError()])
+    async def test_make_request_network_error(self, error):
+        async def side_effect(*args, **kwargs):
+            raise error
 
-    @pytest.mark.asyncio
+        async with Bot("42:TEST").context() as bot:
+            with patch(
+                "aiohttp.client.ClientSession._request",
+                new_callable=AsyncMock,
+                side_effect=side_effect,
+            ):
+                with pytest.raises(TelegramNetworkError):
+                    await bot.get_me()
+
     async def test_stream_content(self, aresponses: ResponsesMockServer):
         aresponses.add(
             aresponses.ANY, aresponses.ANY, "get", aresponses.Response(status=200, body=b"\f" * 10)
         )
 
-        session = AiohttpSession()
-        stream = session.stream_content(
-            "https://www.python.org/static/img/python-logo.png", timeout=5, chunk_size=1
+        async with AiohttpSession() as session:
+            stream = session.stream_content(
+                "https://www.python.org/static/img/python-logo.png",
+                timeout=5,
+                chunk_size=1,
+                raise_for_status=True,
+            )
+            assert isinstance(stream, AsyncGenerator)
+
+            size = 0
+            async for chunk in stream:
+                assert isinstance(chunk, bytes)
+                chunk_size = len(chunk)
+                assert chunk_size == 1
+                size += chunk_size
+            assert size == 10
+
+    async def test_stream_content_404(self, aresponses: ResponsesMockServer):
+        aresponses.add(
+            aresponses.ANY,
+            aresponses.ANY,
+            "get",
+            aresponses.Response(
+                status=404,
+                body=b"File not found",
+            ),
         )
-        assert isinstance(stream, AsyncGenerator)
+        async with AiohttpSession() as session:
+            stream = session.stream_content(
+                "https://www.python.org/static/img/python-logo.png",
+                timeout=5,
+                chunk_size=1,
+                raise_for_status=True,
+            )
 
-        size = 0
-        async for chunk in stream:
-            assert isinstance(chunk, bytes)
-            chunk_size = len(chunk)
-            assert chunk_size == 1
-            size += chunk_size
-        assert size == 10
+            with pytest.raises(ClientError):
+                async for _ in stream:
+                    ...
 
-    @pytest.mark.asyncio
     async def test_context_manager(self):
-        session = AiohttpSession()
-        assert isinstance(session, AsyncContextManager)
+        async with AiohttpSession() as session:
+            assert isinstance(session, AsyncContextManager)
 
-        with patch(
-            "aiogram.api.client.session.aiohttp.AiohttpSession.create_session",
-            new_callable=CoroutineMock,
-        ) as mocked_create_session, patch(
-            "aiogram.api.client.session.aiohttp.AiohttpSession.close", new_callable=CoroutineMock
-        ) as mocked_close:
-            async with session as ctx:
-                assert session == ctx
-            mocked_close.awaited_once()
-            mocked_create_session.awaited_once()
+            with (
+                patch(
+                    "aiogram.client.session.aiohttp.AiohttpSession.create_session",
+                    new_callable=AsyncMock,
+                ) as mocked_create_session,
+                patch(
+                    "aiogram.client.session.aiohttp.AiohttpSession.close",
+                    new_callable=AsyncMock,
+                ) as mocked_close,
+            ):
+                async with session as ctx:
+                    assert session == ctx
+                mocked_close.assert_awaited_once()
+                mocked_create_session.assert_awaited_once()

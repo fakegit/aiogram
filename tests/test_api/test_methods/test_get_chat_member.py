@@ -1,33 +1,17 @@
-import pytest
-
-from aiogram.api.methods import GetChatMember, Request
-from aiogram.api.types import ChatMember, User
+from aiogram.methods import GetChatMember
+from aiogram.types import ChatMemberOwner, User
 from tests.mocked_bot import MockedBot
 
 
 class TestGetChatMember:
-    @pytest.mark.asyncio
-    async def test_method(self, bot: MockedBot):
-        prepare_result = bot.add_result_for(
-            GetChatMember,
-            ok=True,
-            result=ChatMember(user=User(id=42, is_bot=False, first_name="User"), status="creator"),
-        )
-
-        response: ChatMember = await GetChatMember(chat_id=-42, user_id=42)
-        request: Request = bot.get_request()
-        assert request.method == "getChatMember"
-        assert response == prepare_result.result
-
-    @pytest.mark.asyncio
     async def test_bot_method(self, bot: MockedBot):
         prepare_result = bot.add_result_for(
             GetChatMember,
             ok=True,
-            result=ChatMember(user=User(id=42, is_bot=False, first_name="User"), status="creator"),
+            result=ChatMemberOwner(
+                user=User(id=42, is_bot=False, first_name="User"), is_anonymous=False
+            ),
         )
-
-        response: ChatMember = await bot.get_chat_member(chat_id=-42, user_id=42)
-        request: Request = bot.get_request()
-        assert request.method == "getChatMember"
+        response = await bot.get_chat_member(chat_id=-42, user_id=42)
+        bot.get_request()
         assert response == prepare_result.result
